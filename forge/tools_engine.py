@@ -1,6 +1,5 @@
 """Dynamic tool loading, execution, manifest management, and interactive skill support.
 
-Port of Ada-SI's tools_engine.py adapted for IRA.
 """
 
 from __future__ import annotations

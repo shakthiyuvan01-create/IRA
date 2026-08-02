@@ -1,4 +1,4 @@
-"""Unified streaming LLM client for IRA Forge (ported from Ada-SI).
+"""Unified streaming LLM client for IRA Forge.
 
 Provides SSE streaming, tool call extraction, Gemini Google Search grounding,
 and JSON Schema sanitization for Vertex AI / Gemini.

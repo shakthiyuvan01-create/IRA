@@ -1,4 +1,4 @@
-"""Structured debug logging for IRA Forge (ported from Ada-SI)."""
+"""Structured debug logging for IRA Forge."""
 
 import json
 import logging

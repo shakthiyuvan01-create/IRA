@@ -29,7 +29,7 @@ qrcode[pil]
 PyQt6
 discord.py
 slack_sdk
-# Tool Forge (Ada-SI port)
+# Tool Forge
 httpx
 # Content OS features
 feedparser

@@ -1,4 +1,4 @@
-"""IRA Forge API Router — tool creation, pip management, previews (ported from Ada-SI)."""
+"""IRA Forge API Router — tool creation, pip management, previews."""
 
 from __future__ import annotations
 

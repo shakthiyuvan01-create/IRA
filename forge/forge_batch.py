@@ -1,4 +1,4 @@
-"""Multi-tool forge batch orchestration (ported from Ada-SI)."""
+"""Multi-tool forge batch orchestration."""
 
 from __future__ import annotations
 

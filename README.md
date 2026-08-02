@@ -118,7 +118,7 @@ Actions auto-import and register as tools the assistant can call:
 
 ---
 
-## 🔨 Tool Forge (Ada-SI port)
+## 🔨 Tool Forge
 
 IRA can **write, test, and install its own tools** at runtime (`forge/`, ~6,500 lines):
 

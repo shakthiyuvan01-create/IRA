@@ -1,5 +1,5 @@
 /**
- * Ada-SI skill SDK for custom iframe mini-apps.
+ * IRA skill SDK for custom iframe mini-apps.
  * Load from /static/skill-sdk.js in generated index.html.
  */
 (function (global) {

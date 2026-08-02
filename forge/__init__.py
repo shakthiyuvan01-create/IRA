@@ -1,5 +1,5 @@
 """
-IRA Forge — AI-powered tool creation system (ported from Ada-SI).
+IRA Forge — AI-powered tool creation system.
 
 The forge lets IRA create new Python tools at runtime via an LLM pipeline:
 1. Plan  — AI drafts a tool plan

@@ -1,4 +1,4 @@
-"""Shared tool build/install pipeline for IRA Forge (ported from Ada-SI)."""
+"""Shared tool build/install pipeline for IRA Forge."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Shared tool build stream (single-tool and batch) for IRA Forge (ported from Ada-SI).
+"""Shared tool build stream (single-tool and batch) for IRA Forge.
 
 Handles the full codegen → validate → sandbox → QA → preview → install pipeline.
 """

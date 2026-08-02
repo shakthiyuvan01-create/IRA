@@ -1,4 +1,4 @@
-"""Tool runtime HTTP client for IRA Forge (ported from Ada-SI).
+"""Tool runtime HTTP client for IRA Forge.
 
 Communicates with the Docker-based tool runtime sandbox at port 8090."""
 

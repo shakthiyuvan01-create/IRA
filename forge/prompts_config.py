@@ -1,4 +1,4 @@
-"""Loadable prompt configuration for IRA Forge (ported from Ada-SI)."""
+"""Loadable prompt configuration for IRA Forge."""
 
 from __future__ import annotations
 

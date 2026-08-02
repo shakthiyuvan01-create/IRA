@@ -1,4 +1,4 @@
-"""Interactive skill UI QA between sandbox pass and human preview (ported from Ada-SI)."""
+"""Interactive skill UI QA between sandbox pass and human preview."""
 
 from __future__ import annotations
 

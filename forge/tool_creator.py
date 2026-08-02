@@ -1,4 +1,4 @@
-"""AI tool code generation pipeline for IRA Forge (ported from Ada-SI).
+"""AI tool code generation pipeline for IRA Forge.
 
 Handles plan drafting, code generation, validation fixing, preview revision,
 and runtime failure repair — all driven by an LLM (LiteLLM or compatible API).
