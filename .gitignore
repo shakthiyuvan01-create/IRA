@@ -1,0 +1,30 @@
+# ---- Secrets — NEVER commit ----
+.env
+config/api_keys.json
+config/firebase_config.json
+config/smart_home.key
+config/certs/
+
+# ---- Python ----
+.venv/
+__pycache__/
+*.py[cod]
+
+# ---- Personal assistant data ----
+data/
+memory/
+staging/
+
+# ---- Databases ----
+*.db
+*.sqlite3
+
+# ---- Logs ----
+*.log
+ira_startup.log
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

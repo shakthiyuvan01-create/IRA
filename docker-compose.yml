@@ -1,0 +1,13 @@
+services:
+  tool-runtime:
+    build: ./tool_runtime
+    container_name: ira-tools
+    volumes:
+      - ./custom_tools:/app/custom_tools
+      - ira_tool_venv:/app/venv
+    ports:
+      - "8090:8090"
+    restart: unless-stopped
+
+volumes:
+  ira_tool_venv:
