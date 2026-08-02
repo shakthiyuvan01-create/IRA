@@ -9,7 +9,7 @@
 [![Made by Yuvan](https://img.shields.io/badge/Made%20by-Yuvan-gold?style=for-the-badge)](https://github.com)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=for-the-badge&logo=python)](https://python.org)
 [![Voice](https://img.shields.io/badge/Real--Time-Voice-purple?style=for-the-badge)](https://github.com)
-[![Providers](https://img.shields.io/badge/Providers-7--chain%20failover-46E3B7?style=for-the-badge)](https://github.com)
+[![Providers](https://img.shields.io/badge/Providers-4--chain%20failover-46E3B7?style=for-the-badge)](https://github.com)
 [![Platforms](https://img.shields.io/badge/OS-Windows%20%7C%20macOS%20%7C%20Linux-black?style=for-the-badge)](https://github.com)
 
 > *A real-time voice AI that can hear, see, understand, and control your computer — on any OS.*
@@ -63,17 +63,21 @@ python main.py
 `.env` — any ONE provider key is enough; the chain handles the rest. Keys can also live in
 `config/api_keys.json` (merged into the environment at boot).
 
-| Key | Purpose |
-|---|---|
-| `OMNIROUTE_API_KEY` + `OMNIROUTE_URL` + `OMNIROUTE_MODEL` | OmniRoute gateway (237+ models) |
-| `GITHUB_TOKEN` | GitHub Models (free GPT-4o) |
-| `GEMINI_API_KEY` + `GEMINI_MODEL` | Google Gemini (default `gemini-2.5-flash`) — also drives the voice loop |
-| `NARA_API_KEY` + `NARA_MODEL` | NaraRouter gateway (mistral-large) |
-| `BLUESMINDS_KEY` + `BLUESMINDS_MODEL` | BluesMinds gateway |
-| `OPENAI_API_KEY` + `OPENAI_MODEL` | OpenAI API |
-| `OLLAMA_MODEL` + `OLLAMA_URL` | Local Ollama (default `llama3.2`) |
-| `AI_PROVIDER_ORDER` | Chain order, first 3 raced in parallel. Default `omniroute,gemini,ollama` |
+| Key | Purpose | Get a key |
+|---|---|---|
+| `GITHUB_TOKEN` | GitHub Models (free GPT-4o) | [github.com/settings/tokens](https://github.com/settings/tokens) |
+| `GEMINI_API_KEY` + `GEMINI_MODEL` | Google Gemini (default `gemini-2.5-flash`) — also drives the voice loop | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `OPENAI_API_KEY` + `OPENAI_MODEL` | OpenAI API | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+| `OLLAMA_MODEL` + `OLLAMA_URL` | Local Ollama (default `llama3.2`) — no key needed | [ollama.com](https://ollama.com) |
+| `AI_PROVIDER_ORDER` | Chain order, first 3 raced in parallel. Default `gemini,openai,ollama` |
 | `HEARTBEAT_ENABLED` / `HEARTBEAT_INTERVAL_MINUTES` | Self-improvement heartbeat toggle |
+
+### Supported providers
+
+- **GitHub Models** — free GPT-4o / GPT-4o-mini with a GitHub token
+- **Google Gemini** — default `gemini-2.5-flash`, also powers the JARVIS voice loop
+- **OpenAI** — full OpenAI API (default `gpt-4o-mini`)
+- **Ollama** — fully local models (default `llama3.2`)
 
 ---
 
@@ -177,7 +181,7 @@ User ⇄ PyQt6 Desktop UI (JarvisUI) · voice (STT ⇄ Gemini live ⇄ TTS)
           │
 Main loop (main.py) ── provider chain ── actions (46) ── memory (persistent)
           │
-providers/ ── OmniRoute → Gemini → Ollama → GitHub → Nara → BluesMinds → OpenAI
+providers/ ── Gemini → OpenAI → GitHub → Ollama
                (parallel racing on the first 3 + sequential failover + caching)
           │
 Self-improvement ── heartbeat · self-optimize · eval harness · experience DB · curator
@@ -201,15 +205,12 @@ IRA/
 ├── or_client.py             # OpenRouter client
 ├── updater.py               # Self-update logic
 ├── core/                    # llm_client, stt, tts, installer, user_paths
-├── providers/               # 7-provider chain
+├── providers/               # 4-provider chain
 │   ├── manager.py           # Racing + failover + caching
 │   ├── base.py              # Abstract provider
 │   ├── github_models.py     # GitHub Models (GPT-4o / 4o-mini)
 │   ├── gemini.py            # Google Gemini (drives voice)
 │   ├── openai_provider.py   # OpenAI
-│   ├── nararouter.py        # NaraRouter
-│   ├── bluesminds.py        # BluesMinds
-│   ├── omniroute.py         # OmniRoute
 │   └── ollama.py            # Local Ollama
 ├── actions/                 # 46 built-in tools (web, files, system, comms, dev…)
 ├── memory/                  # memory_manager, memory_tool, session_search
