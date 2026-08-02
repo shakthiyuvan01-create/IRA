@@ -26,7 +26,7 @@ except Exception:  # pragma: no cover
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-TEMPLATE_CACHE_DIR = PROJECT_ROOT / "config" / "ppt_template_cache"
+TEMPLATE_CACHE_DIR = PROJECT_ROOT / "core" / "config" / "ppt_template_cache"
 TEMPLATE_CACHE_INDEX = TEMPLATE_CACHE_DIR / "index.json"
 TEMPLATE_ASSET_DIR = TEMPLATE_CACHE_DIR / "assets"
 

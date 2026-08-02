@@ -15,7 +15,7 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-from data.database import get_db
+from core.data.database import get_db
 
 HEADERS = {
     "User-Agent": (

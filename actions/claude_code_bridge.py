@@ -11,7 +11,7 @@ from actions.website_builder import website_builder
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SETTINGS_PATH = BASE_DIR / "config" / "app_settings.json"
+SETTINGS_PATH = BASE_DIR / "core" / "config" / "app_settings.json"
 
 
 def _load_settings() -> dict[str, Any]:

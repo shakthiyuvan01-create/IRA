@@ -26,7 +26,7 @@ def _base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-CONFIG_PATH = _base_dir() / "config" / "api_keys.json"
+CONFIG_PATH = _base_dir() / "core" / "config" / "api_keys.json"
 
 
 def _cfg() -> dict:

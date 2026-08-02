@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
-from forge.build_pipeline import (
+from dashboard.forge.build_pipeline import (
     PENDING_PIP_INSTALLS,
     PENDING_UI_PREVIEWS,
     PHASE_MAX_RETRIES,
@@ -23,9 +23,9 @@ from forge.build_pipeline import (
     run_sandbox_phase,
     stream_runtime_install,
 )
-from forge.build_ui_qa import stream_interactive_ui_qa
-from forge.debug_log import log_build_event
-from forge.forge_batch import (
+from dashboard.forge.build_ui_qa import stream_interactive_ui_qa
+from dashboard.forge.debug_log import log_build_event
+from dashboard.forge.forge_batch import (
     RUNTIME_INSTALL_LOCK,
     approve_all_plans,
     approve_plan,
@@ -38,18 +38,18 @@ from forge.forge_batch import (
     stream_batch_plan_revision,
     validate_batch_tools,
 )
-from forge.litellm_client import SSE_HEADERS
-from forge.runtime_client import (
+from dashboard.forge.litellm_client import SSE_HEADERS
+from dashboard.forge.runtime_client import (
     runtime_health,
     runtime_list_pip_packages,
     runtime_uninstall_pip_package,
 )
-from forge.tool_build_stream import stream_tool_build
-from forge.tool_creator import (
+from dashboard.forge.tool_build_stream import stream_tool_build
+from dashboard.forge.tool_creator import (
     draft_tool_plan_stream,
     revise_tool_plan_stream,
 )
-from forge.tools_engine import (
+from dashboard.forge.tools_engine import (
     alist_tool_summaries,
     delete_tool_async,
     execute_skill_action,

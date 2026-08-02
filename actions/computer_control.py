@@ -31,8 +31,8 @@ def _base_dir() -> Path:
 
 
 _BASE         = _base_dir()
-_CONFIG_PATH  = _BASE / "config" / "api_keys.json"
-_MEMORY_PATH  = _BASE / "memory" / "long_term.json"
+_CONFIG_PATH  = _BASE / "core" / "config" / "api_keys.json"
+_MEMORY_PATH  = _BASE / "core" / "memory" / "long_term.json"
 
 def _load_config() -> dict:
     try:

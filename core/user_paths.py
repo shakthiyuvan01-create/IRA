@@ -19,7 +19,7 @@ def _base_dir() -> Path:
 
 def _cfg() -> dict:
     try:
-        return json.loads((_base_dir() / "config" / "api_keys.json").read_text(encoding="utf-8"))
+        return json.loads((_base_dir() / "core" / "config" / "api_keys.json").read_text(encoding="utf-8"))
     except Exception:
         return {}
 

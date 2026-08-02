@@ -13,5 +13,5 @@ If Not fso.FileExists(py) Then py = "python.exe"
 
 logf = proj & "\ira_startup.log"
 ' Run hidden; capture fresh output for verification.
-cmd = "cmd /c " & q & q & py & q & " " & q & proj & "\main.py" & q & " > " & q & logf & q & " 2>&1" & q
+cmd = "cmd /c " & q & q & py & q & " " & q & proj & "\core\main.py" & q & " > " & q & logf & q & " 2>&1" & q
 sh.Run cmd, 0, False

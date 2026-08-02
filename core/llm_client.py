@@ -47,7 +47,7 @@ def _get_base_dir() -> Path:
 
 
 BASE_DIR    = _get_base_dir()
-CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
+CONFIG_PATH = BASE_DIR / "core" / "config" / "api_keys.json"
 
 _DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 
@@ -173,7 +173,7 @@ def chat(prompt: str, system: str | None = None, timeout: int = 120) -> str:
     """
     # Try new multi-provider system first
     try:
-        from providers import AI
+        from core.providers import AI
         out = AI.generate(prompt, system=system or "", max_tokens=2000, temperature=0.3)
         if out and not out.startswith("[AI error"):
             return out

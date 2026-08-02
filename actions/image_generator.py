@@ -21,7 +21,7 @@ from random import randint
 import requests
 from PIL import Image
 
-from config import get_config, is_windows, is_mac, is_linux
+from core.config import get_config, is_windows, is_mac, is_linux
 
 
 def _get_base_dir() -> Path:

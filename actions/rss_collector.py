@@ -6,7 +6,7 @@ Requires: feedparser (pip install feedparser)
 
 import re
 from datetime import datetime
-from data.database import get_db
+from core.data.database import get_db
 
 
 def _import_feedparser():

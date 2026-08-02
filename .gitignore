@@ -1,19 +1,29 @@
 # ---- Secrets — NEVER commit ----
 .env
-config/api_keys.json
-config/firebase_config.json
-config/smart_home.key
-config/certs/
+core/config/api_keys.json
+core/config/firebase_config.json
+core/config/smart_home.key
+core/config/certs/
 
 # ---- Python ----
 .venv/
 __pycache__/
 *.py[cod]
 
-# ---- Personal assistant data ----
-data/
-memory/
-staging/
+# ---- Personal assistant data (code ships, data stays ignored) ----
+# memory/ — track *.py code, ignore the data files
+core/memory/MEMORY.md
+core/memory/USER.md
+core/memory/benchmarks.json
+core/memory/chat_history.jsonl
+core/memory/clipboard_history.json
+core/memory/long_term.json
+# data/ — track database.py code, ignore generated content + db
+core/data/*.txt
+core/data/*.db
+core/data/*.sqlite3
+# staging/ — runtime forge scratch
+dashboard/staging/
 
 # ---- Databases ----
 *.db

@@ -18,7 +18,7 @@ def _base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-HISTORY_PATH   = _base_dir() / "memory" / "clipboard_history.json"
+HISTORY_PATH   = _base_dir() / "core" / "memory" / "clipboard_history.json"
 MAX_ITEMS      = 50
 _lock          = threading.Lock()
 _watch_started = False

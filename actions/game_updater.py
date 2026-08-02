@@ -8,7 +8,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from config import get_os, is_windows, is_mac, is_linux
+from core.config import get_os, is_windows, is_mac, is_linux
 
 _KNOWN_APPIDS: dict[str, tuple[str, str]] = {
     "pubg":                ("578080",  "PUBG: Battlegrounds"),

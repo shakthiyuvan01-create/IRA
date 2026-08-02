@@ -30,7 +30,7 @@ def _base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-SCHED_PATH      = _base_dir() / "memory" / "schedules.json"
+SCHED_PATH      = _base_dir() / "core" / "memory" / "schedules.json"
 _lock           = threading.Lock()
 _runner_started = False
 

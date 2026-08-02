@@ -12,7 +12,7 @@ def get_base_dir():
     return Path(__file__).resolve().parent.parent
 
 BASE_DIR           = get_base_dir()
-API_CONFIG_PATH    = BASE_DIR / "config" / "api_keys.json"
+API_CONFIG_PATH    = BASE_DIR / "core" / "config" / "api_keys.json"
 try:
     from core.user_paths import desktop_dir
     DESKTOP        = desktop_dir()

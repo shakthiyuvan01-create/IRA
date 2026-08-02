@@ -43,7 +43,7 @@ def _base_dir() -> Path:
 
 
 _BASE        = _base_dir()
-_CONFIG_PATH = _BASE / "config" / "api_keys.json"
+_CONFIG_PATH = _BASE / "core" / "config" / "api_keys.json"
 
 
 def _load_config() -> dict:

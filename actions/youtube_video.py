@@ -34,7 +34,7 @@ try:
 except ImportError:
     _TRANSCRIPT_OK = False
 
-from config import get_os, is_windows, is_mac, is_linux
+from core.config import get_os, is_windows, is_mac, is_linux
 
 
 def _get_base_dir() -> Path:
@@ -44,7 +44,7 @@ def _get_base_dir() -> Path:
 
 
 BASE_DIR        = _get_base_dir()
-API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
+API_CONFIG_PATH = BASE_DIR / "core" / "config" / "api_keys.json"
 
 HEADERS = {
     "User-Agent": (

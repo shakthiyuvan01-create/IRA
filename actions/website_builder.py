@@ -16,8 +16,8 @@ from typing import Any
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SETTINGS_PATH = BASE_DIR / "config" / "app_settings.json"
-API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
+SETTINGS_PATH = BASE_DIR / "core" / "config" / "app_settings.json"
+API_CONFIG_PATH = BASE_DIR / "core" / "config" / "api_keys.json"
 
 DEFAULT_THEME = {
     "bg": "#071018",

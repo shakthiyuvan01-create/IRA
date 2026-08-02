@@ -30,7 +30,7 @@ def _base_dir() -> Path:
 
 
 BASE_DIR = _base_dir()
-API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
+API_CONFIG_PATH = BASE_DIR / "core" / "config" / "api_keys.json"
 LIVE_MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025"
 IMG_MAX_W = 1280
 IMG_MAX_H = 720

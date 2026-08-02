@@ -61,7 +61,7 @@ python main.py
 ## 🔑 Environment
 
 `.env` — any ONE provider key is enough; the chain handles the rest. Keys can also live in
-`config/api_keys.json` (merged into the environment at boot).
+`core/config/api_keys.json` (merged into the environment at boot).
 
 | Key | Purpose | Get a key |
 |---|---|---|
@@ -93,8 +93,8 @@ python main.py
 
 ## 🧠 Persistent Memory
 
-- **Memory manager** — long-term project, preference, and personal context (`memory/memory_manager.py`)
-- **Session search** — full-text search across past conversations (`memory/session_search.py`)
+- **Memory manager** — long-term project, preference, and personal context (`core/memory/memory_manager.py`)
+- **Session search** — full-text search across past conversations (`core/memory/session_search.py`)
 - **Memory tools** — exposed to the model as tools (`memory_tool`, `session_search_tool`) so it can
   store and recall on its own
 - **Persona files** — `persona/SOUL.md`, `IDENTITY.md`, `USER.md`, `TOOLS.md`, `AGENTS.md`,
@@ -120,7 +120,7 @@ Actions auto-import and register as tools the assistant can call:
 
 ## 🔨 Tool Forge
 
-IRA can **write, test, and install its own tools** at runtime (`forge/`, ~6,500 lines):
+IRA can **write, test, and install its own tools** at runtime (`dashboard/forge/`, ~6,500 lines):
 
 - **`tools_engine.py`** — dynamic tool loading, execution, manifest management, interactive skills
 - **`tool_creator.py`** — AI code generation pipeline (plan → codegen → validate → preview → install)
@@ -137,10 +137,10 @@ provider chain.
 
 ## 🐳 Tool Runtime (sandboxed execution)
 
-- `tool_runtime/` — a **Dockerized Python sandbox** (port **8090**) that runs forged tools in
-  isolated venvs
+- `dashboard/tool_runtime/` — a **Dockerized Python sandbox** (port **8090**) that runs forged
+  tools in isolated venvs
 - `runner.py` + FastAPI `server.py` + Python 3.12-slim Dockerfile
-- Mounts `custom_tools/` and a persistent tool venv
+- Mounts `dashboard/custom_tools/` and a persistent tool venv
 
 ```bash
 docker compose up tool-runtime -d
@@ -168,9 +168,9 @@ docker compose up tool-runtime -d
 |---|---|
 | **Heartbeat** | On a timer, reviews recent activity and rewrites its own memory with durable new facts |
 | **Self-optimizer** | Runs the eval, tweaks its system prompt for the weakest area, keeps the change ONLY if the score improves, else reverts |
-| **Eval harness** | Golden prompts scored automatically; regressions reported (`services/eval_harness.py`, `self_eval.py`) |
-| **Experience DB** | Distills reusable strategies from past runs; failures write "avoid" lessons (`services/experience_db.py`) |
-| **Curator** | Curates learned knowledge (`services/curator.py`) |
+| **Eval harness** | Golden prompts scored automatically; regressions reported (`core/services/eval_harness.py`, `self_eval.py`) |
+| **Experience DB** | Distills reusable strategies from past runs; failures write "avoid" lessons (`core/services/experience_db.py`) |
+| **Curator** | Curates learned knowledge (`core/services/curator.py`) |
 
 ---
 
@@ -179,14 +179,14 @@ docker compose up tool-runtime -d
 ```
 User ⇄ PyQt6 Desktop UI (JarvisUI) · voice (STT ⇄ Gemini live ⇄ TTS)
           │
-Main loop (main.py) ── provider chain ── actions (46) ── memory (persistent)
+core/ (main.py) ── provider chain ── actions (46) ── memory (persistent)
           │
 providers/ ── Gemini → OpenAI → GitHub → Ollama
                (parallel racing on the first 3 + sequential failover + caching)
           │
 Self-improvement ── heartbeat · self-optimize · eval harness · experience DB · curator
           │
-Tool Forge ── tool_creator · tool_verify · tool_build_stream · forge_batch
+Tool Forge (dashboard/forge) ── tool_creator · tool_verify · tool_build_stream · forge_batch
           │
 Tool Runtime (Docker, :8090) ── sandboxed venv execution of forged tools
           │
@@ -199,32 +199,33 @@ Dashboard (FastAPI, :8000) ── 22 forge routes · skill UI · remote control
 
 ```
 IRA/
-├── main.py                  # Entry point — JARVIS voice loop, tool routing, briefing
-├── ui.py                    # JarvisUI — PyQt6 desktop interface
-├── discord_bot.py           # Discord channel
-├── or_client.py             # OpenRouter client
-├── updater.py               # Self-update logic
-├── core/                    # llm_client, stt, tts, installer, user_paths
-├── providers/               # 4-provider chain
-│   ├── manager.py           # Racing + failover + caching
-│   ├── base.py              # Abstract provider
-│   ├── github_models.py     # GitHub Models (GPT-4o / 4o-mini)
-│   ├── gemini.py            # Google Gemini (drives voice)
-│   ├── openai_provider.py   # OpenAI
-│   └── ollama.py            # Local Ollama
+├── core/                    # The brain — entry point, agents, memory, providers, services
+│   ├── main.py              # Entry point — JARVIS voice loop, tool routing, briefing
+│   ├── ui.py                # JarvisUI — PyQt6 desktop interface
+│   ├── discord_bot.py       # Discord channel
+│   ├── or_client.py         # OpenRouter client
+│   ├── updater.py           # Self-update logic
+│   ├── providers/           # 4-provider chain
+│   │   ├── manager.py       # Racing + failover + caching
+│   │   ├── base.py          # Abstract provider
+│   │   ├── github_models.py # GitHub Models (GPT-4o / 4o-mini)
+│   │   ├── gemini.py        # Google Gemini (drives voice)
+│   │   ├── openai_provider.py  # OpenAI
+│   │   └── ollama.py        # Local Ollama
+│   ├── memory/              # memory_manager, memory_tool, session_search
+│   ├── persona/             # SOUL · IDENTITY · USER · TOOLS · AGENTS · HEARTBEAT
+│   ├── agent/               # planner, executor, task_queue, error_handler
+│   ├── services/            # heartbeat, self_optimize, self_eval, eval_harness, curator…
+│   ├── auth/ · config/ · plugins/ · data/   # auth, secrets (never committed), plugins, runtime data
 ├── actions/                 # 46 built-in tools (web, files, system, comms, dev…)
-├── memory/                  # memory_manager, memory_tool, session_search
-├── persona/                 # SOUL · IDENTITY · USER · TOOLS · AGENTS · HEARTBEAT
-├── agent/                   # planner, executor, task_queue, error_handler
-├── services/                # heartbeat, self_optimize, self_eval, eval_harness, curator…
-├── forge/                   # Tool Forge — tool_creator, tool_verify, build_pipeline…
-├── tool_runtime/            # Docker sandbox — runner.py, server.py, Dockerfile
-├── dashboard/               # FastAPI server + forge_router (22 routes) + static UI
-├── smart_home/              # Smart device manager (python-kasa)
-├── auth/                    # Auth utilities
-├── config/                  # api_keys.json (secrets) — NEVER committed
-├── plugins/                 # Drop-in plugin loader
-└── data/ · memory/ · staging/   # Runtime data — gitignored
+├── dashboard/               # Web control + forge + sandboxed tool runtime
+│   ├── server.py            # FastAPI dashboard (port 8000)
+│   ├── forge_router.py      # 22 forge routes
+│   ├── forge/               # Tool Forge — tool_creator, tool_verify, build_pipeline…
+│   ├── tool_runtime/        # Docker sandbox — runner.py, server.py, Dockerfile
+│   ├── custom_tools/        # Forged & installed tools
+│   └── staging/             # Forge verification scratch
+└── smart_home/              # Smart device manager (python-kasa)
 ```
 
 ---
@@ -238,9 +239,9 @@ IRA/
 
 ## 🔐 Safety & Privacy
 
-- **Secrets never committed** — `.env`, `config/api_keys.json`, `config/firebase_config.json`,
-  `config/smart_home.key`, and certs are all gitignored
-- **Local-first memory** — your data, `data/`, and `memory/` stay on your machine
+- **Secrets never committed** — `.env`, `core/config/api_keys.json`,
+  `core/config/firebase_config.json`, `core/config/smart_home.key`, and certs are all gitignored
+- **Local-first memory** — your data, `core/data/`, and `core/memory/` stay on your machine
 - **Personal & non-commercial** — see the license below
 
 ---

@@ -17,7 +17,7 @@ def _base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-API_CONFIG_PATH = _base_dir() / "config" / "api_keys.json"
+API_CONFIG_PATH = _base_dir() / "core" / "config" / "api_keys.json"
 
 
 def _get_api_key() -> str:

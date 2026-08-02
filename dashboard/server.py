@@ -61,7 +61,7 @@ UPLOADS_DIR = _make_uploads_dir()
 def _get_gemini_key() -> str | None:
     try:
         import json as _json
-        with open(BASE_DIR / "config" / "api_keys.json", "r", encoding="utf-8") as f:
+        with open(BASE_DIR / "core" / "config" / "api_keys.json", "r", encoding="utf-8") as f:
             return _json.load(f).get("gemini_api_key")
     except Exception:
         return None
@@ -397,7 +397,7 @@ class DashboardServer:
 
     @staticmethod
     def _ssl_enabled() -> bool:
-        certs = BASE_DIR / "config" / "certs"
+        certs = BASE_DIR / "core" / "config" / "certs"
         return (certs / "jarvis.key").exists() and (certs / "jarvis.crt").exists()
 
     def get_url(self) -> str:
@@ -764,8 +764,8 @@ class DashboardServer:
         """Second HTTPS server on PORT+1 sharing the same app and in-memory state.
         Chrome HTTPS-upgrades any bare IP:PORT the user types, so this port also needs TLS.
         User types IP:8001 → Chrome tries https → self-signed cert warning → accept once → done."""
-        ssl_key  = BASE_DIR / "config" / "certs" / "jarvis.key"
-        ssl_cert = BASE_DIR / "config" / "certs" / "jarvis.crt"
+        ssl_key  = BASE_DIR / "core" / "config" / "certs" / "jarvis.key"
+        ssl_cert = BASE_DIR / "core" / "config" / "certs" / "jarvis.crt"
         asyncio.get_event_loop().run_in_executor(None, _ensure_network_access, PORT + 1)
         cfg = uvicorn.Config(
             self.app, host="0.0.0.0", port=PORT + 1, log_level="warning",
@@ -785,8 +785,8 @@ class DashboardServer:
         asyncio.get_event_loop().run_in_executor(None, _ensure_network_access, PORT)
 
         use_ssl  = self._ssl_enabled()
-        ssl_key  = BASE_DIR / "config" / "certs" / "jarvis.key"
-        ssl_cert = BASE_DIR / "config" / "certs" / "jarvis.crt"
+        ssl_key  = BASE_DIR / "core" / "config" / "certs" / "jarvis.key"
+        ssl_cert = BASE_DIR / "core" / "config" / "certs" / "jarvis.crt"
 
         if use_ssl:
             asyncio.create_task(self._serve_alias())

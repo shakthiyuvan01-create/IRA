@@ -7,7 +7,7 @@ Stores transactions in the shared SQLite database.
 
 import re
 from datetime import datetime
-from data.database import get_db
+from core.data.database import get_db
 
 CATEGORIES = [
     "Food", "Groceries", "Travel", "Shopping", "Bills", "Subscription",

@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from data.database import get_db
+from core.data.database import get_db
 
 
 def _get_base_dir():
@@ -20,7 +20,7 @@ def _get_base_dir():
 
 
 BASE_DIR = _get_base_dir()
-TOKEN_PATH = BASE_DIR / "config" / "gmail_token.json"
+TOKEN_PATH = BASE_DIR / "core" / "config" / "gmail_token.json"
 
 
 def _import_google():
@@ -49,7 +49,7 @@ def _get_credentials():
 
     # Check config for client credentials
     try:
-        with open(str(BASE_DIR / "config" / "api_keys.json"), "r") as f:
+        with open(str(BASE_DIR / "core" / "config" / "api_keys.json"), "r") as f:
             api_config = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return None, "config/api_keys.json not found"

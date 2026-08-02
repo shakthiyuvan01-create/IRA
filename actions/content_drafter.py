@@ -4,7 +4,7 @@ Adapted from agentic-os-personal-main's server/ai/contentAgent.js.
 Uses IRA's core.llm_client.chat() for AI generation.
 """
 
-from data.database import get_db
+from core.data.database import get_db
 
 PLATFORM_NOTES = {
     "instagram": (

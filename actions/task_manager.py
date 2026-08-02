@@ -5,7 +5,7 @@ Stores tasks in the shared SQLite database.
 """
 
 from datetime import datetime
-from data.database import get_db
+from core.data.database import get_db
 
 
 def add_task(title, notes=None, due_date=None, priority=0):
