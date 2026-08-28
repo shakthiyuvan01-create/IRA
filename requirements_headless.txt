@@ -2,12 +2,13 @@
 # Only what the voice loop + brahma_connect gateway need.
 # NO PyQt6 / torch / whisper / opencv / mediapipe / playwright / pyautogui.
 #
-# TARGET PYTHON: 3.10  (google-genai needs >=3.10; miniaudio prebuilt stops at 3.10)
+# TARGET PYTHON: 3.9.6 (system Python on the 2013 Mac — NO install needed)
+# google-genai==1.47.0 is a `py3-none-any` wheel -> works on 3.9.
 # Use `miniaudio` (not sounddevice): it vendors its own audio backend, so it
 # works on a clean macOS WITHOUT system PortAudio / Homebrew.
-# Pin miniaudio==1.58 — last version with a prebuilt macOS wheel for 3.10.
+# Pin miniaudio==1.58 — last version with a prebuilt macOS wheel for 3.9/3.10.
 
-google-genai>=1.40
+google-genai==1.47.0
 miniaudio==1.58
 fastapi>=0.110
 uvicorn[standard]>=0.27
