@@ -45,3 +45,4 @@ python-docx
 reportlab
 edge-tts
 miniaudio
+PyQt6-WebEngine  # Hand Control panel (embeds barehands air-board stage, in-app QWidget)

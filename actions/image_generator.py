@@ -1,12 +1,12 @@
-"""image_generator.py — AI Image Generation via HuggingFace Inference API (Stable Diffusion XL).
+"""image_generator.py — AI Image Generation (HuggingFace SDXL, with Gemini fallback).
 
 Generates 4 images per prompt, saves them to Data/generated_images/, and opens them.
-Adapted from Jarvis AI Assistant's Backend/ImageGeneration.py.
 
-Requires:
-  - huggingface_api_key in config/api_keys.json
-  - requests (already in IRA deps)
-  - Pillow (already in IRA deps)
+Backends (auto-selected):
+  - HuggingFace Inference API (stable-diffusion-xl-base-1.0) when
+    huggingface_api_key is configured in api_keys.json
+  - Gemini image model (gemini-2.5-flash-image) via the existing gemini_api_key
+    when no HuggingFace key is present — no extra credentials needed.
 """
 
 import asyncio
@@ -41,6 +41,62 @@ def _get_hf_api_key() -> str | None:
     """Read HuggingFace API key from config."""
     cfg = get_config()
     return cfg.get("huggingface_api_key") or None
+
+
+def _get_gemini_api_key() -> str | None:
+    """Read Gemini API key from config (used as the image-gen fallback)."""
+    cfg = get_config()
+    return cfg.get("gemini_api_key") or None
+
+
+# Gemini image generation model (google-genai, response_modalities=["IMAGE"])
+GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image"
+
+
+def _generate_single_gemini(prompt: str, seed: int) -> bytes | None:
+    """Generate one image via the Gemini image model (no extra key needed)."""
+    api_key = _get_gemini_api_key()
+    if not api_key:
+        return None
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model=GEMINI_IMAGE_MODEL,
+            contents=(
+                f"{prompt}, quality=4K, sharpness=maximum, "
+                f"Ultra High details, high resolution, seed={seed}"
+            ),
+            config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
+        )
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.data:
+                return part.inline_data.data
+        print(f"[ImageGen] Gemini returned no inline image (seed={seed})")
+    except Exception as e:
+        print(f"[ImageGen] Gemini failed (seed={seed}): {e}")
+    return None
+
+
+def _generate_single_pollinations(prompt: str, seed: int) -> bytes | None:
+    """Free no-key fallback: Pollinations.ai image endpoint."""
+    try:
+        from urllib.parse import quote
+        import requests
+
+        url = (
+            "https://image.pollinations.ai/prompt/"
+            f"{quote(f'{prompt}, quality=4K, sharpness=maximum, seed={seed}')}"
+            f"?width=512&height=512&seed={seed}&nologo=true"
+        )
+        resp = requests.get(url, timeout=90)
+        resp.raise_for_status()
+        return resp.content or None
+    except Exception as e:
+        print(f"[ImageGen] Pollinations failed (seed={seed}): {e}")
+        return None
 
 
 def _ensure_images_dir() -> Path:
@@ -90,23 +146,41 @@ def generate_images(prompt: str, parameters: dict | None = None) -> str:
     Returns:
         A spoken summary string for the voice output.
     """
-    api_key = _get_hf_api_key()
-    if not api_key:
-        return (
-            "Image generation requires a HuggingFace API key. "
-            "Please add 'huggingface_api_key' to config/api_keys.json, Yuvan."
-        )
+    hf_key    = _get_hf_api_key()
+    gemini_key = _get_gemini_api_key()
+    if not hf_key and not gemini_key:
+        print("[ImageGen] No API keys found — using the free Pollinations fallback")
+    print(f"[ImageGen] Generating 4 images for: {prompt}")
 
     out_dir = _ensure_images_dir()
-    prompt_slug = "".join(c if c.isalnum() or c in " _-" else "_" for c in prompt)[:40]
+    prompt_slug = " ".join(prompt.split()).replace(" ", "_")[:40].strip("_")
     timestamp = __import__("datetime").datetime.now().strftime("%H%M%S")
 
-    print(f"[ImageGen] Generating 4 images for: {prompt}")
+    # Per-image engine chain: HuggingFace (key) → Gemini (key) → Pollinations
+    # (free, no key). Engines that fail are dropped for the remaining images.
+    engines: list[tuple[str, object]] = []
+    if hf_key:
+        engines.append(("huggingface", lambda s: _generate_single(prompt, s, hf_key)))
+    if gemini_key:
+        engines.append(("gemini", lambda s: _generate_single_gemini(prompt, s)))
+    engines.append(("pollinations", lambda s: _generate_single_pollinations(prompt, s)))
+
+    dead: set[str] = set()
+    used: set[str] = set()
 
     results = []
     for i in range(4):
         seed = randint(0, 1_000_000)
-        image_data = _generate_single(prompt, seed, api_key)
+        image_data = None
+        for name, fn in engines:
+            if name in dead:
+                continue
+            image_data = fn(seed)
+            if image_data:
+                used.add(name)
+                break
+            dead.add(name)
+            print(f"[ImageGen] engine '{name}' unavailable — trying next")
 
         if image_data:
             try:
@@ -132,9 +206,11 @@ def generate_images(prompt: str, parameters: dict | None = None) -> str:
 
     _open_image(results[0])
 
+    engine_desc = ", ".join(sorted(used)) or "pollinations"
     count = len(results)
     return (
-        f"Generated {count} image{'s' if count > 1 else ''} for '{prompt}', Yuvan. "
+        f"Generated {count} image{'s' if count > 1 else ''} for '{prompt}' "
+        f"(via {engine_desc}), Yuvan. "
         f"Saved to the Data folder. Opening the first one now."
     )
 

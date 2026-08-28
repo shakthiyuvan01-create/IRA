@@ -1076,3 +1076,75 @@ def build_presentation_from_template(
         except Exception:
             pass
     return f"Presentation created: {output_path}"
+
+
+# ── Tool entry point ───────────────────────────────────────────────────────
+
+def build_ppt_from_template(topic: str, slides: list[dict] | None = None, player=None) -> str:
+    """Build a PowerPoint from a downloaded premium template (tool entry).
+
+    Args:
+        topic:  Presentation topic / title.
+        slides: Optional list of slide specs
+                [{"title", "kicker", "bullets": [...], "notes"}].
+                When omitted, a simple outline is generated from the topic.
+        player: Optional UI handle for logging.
+
+    Returns:
+        A spoken summary string.
+    """
+    from datetime import datetime
+
+    topic = (topic or "").strip()
+    if not topic:
+        return "Please tell me the presentation topic, Yuvan."
+
+    profile = infer_presentation_profile(title=topic)
+
+    if player:
+        player.write_log(f"[PPT] Building template presentation: {topic}")
+
+    if not slides:
+        slides = [
+            {"title": topic, "kicker": "01", "bullets": []},
+            {"title": "Overview", "kicker": "02",
+             "bullets": [f"Introduction to {topic}",
+                         "Key goals and objectives",
+                         "Expected outcomes"]},
+            {"title": "Main Points", "kicker": "03",
+             "bullets": ["Core concepts",
+                         "Supporting details",
+                         "Examples and use cases"]},
+            {"title": "Summary", "kicker": "04",
+             "bullets": ["Recap of key takeaways", "Next steps", "Q&A"]},
+        ]
+
+    resolved = None
+    try:
+        resolved = resolve_presentation_template(profile)
+    except Exception as e:
+        print(f"[PPT] Template resolve failed: {e}")
+
+    out_dir = Path(__file__).resolve().parent.parent / "Data" / "presentations"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    slug = " ".join(topic.split()).replace(" ", "_")[:40].strip("_")
+    output = out_dir / f"{slug}_{datetime.now().strftime('%H%M%S')}.pptx"
+
+    if resolved and resolved.get("path"):
+        template_path = Path(resolved["path"])
+    else:
+        # Minimal default-template fallback so the deck always builds.
+        from pptx import Presentation
+        template_path = out_dir / "_default.pptx"
+        if not template_path.exists():
+            Presentation().save(str(template_path))
+
+    return build_presentation_from_template(
+        template_path=template_path,
+        parameters={},
+        profile=profile,
+        slides=slides,
+        output_path=output,
+        auto_open=True,
+        player=player,
+    )

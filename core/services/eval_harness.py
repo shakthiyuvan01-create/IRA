@@ -49,51 +49,75 @@ def _save_history(history: list):
 
 
 def run_eval() -> dict:
-    """Run all golden prompts through the provider chain and score them."""
+    """Run all golden prompts through the provider chain and score them.
+
+    Robust to provider outages: a prompt that fails to generate (empty answer,
+    an "[AI error ...]" sentinel, or an exception) is recorded as *degraded*
+    rather than scored 0. Degraded areas are excluded from the aggregate and
+    from regression detection so a temporary API/network failure cannot
+    manufacture a false "quality dropped" regression.
+    """
     try:
         from core.providers import AI
     except Exception as e:
-        return {"error": f"providers not available: {e}", "overall": 0, "details": []}
+        return {"error": f"providers not available: {e}", "overall": None,
+                "details": [], "degraded": True}
 
     from . import self_eval as _se
 
     scores, details = [], []
+    degraded = 0
     for area, prompt, must_contain in GOLDEN:
         try:
             ans = AI.generate(prompt, max_tokens=350, temperature=0.2)
-            s = 0.0
-            if ans and not ans.startswith("[AI error"):
-                ev = _se.evaluate(prompt, ans)
-                s = float(ev.get("overall", 0.5)) if not ev.get("skipped") else 0.6
-                for token in must_contain:
-                    if token.lower() not in ans.lower():
-                        s *= 0.6
+            if not ans or ans.startswith("[AI error"):
+                # Could not measure this area — mark degraded, not 0%.
+                degraded += 1
+                details.append({"area": area, "score": None, "degraded": True})
+                continue
+            ev = _se.evaluate(prompt, ans)
+            s = float(ev.get("overall", 0.5)) if not ev.get("skipped") else 0.6
+            for token in must_contain:
+                if token.lower() not in ans.lower():
+                    s *= 0.6
             scores.append(s)
             details.append({"area": area, "score": round(min(s, 5.0) / 5 * 100, 1)})
         except Exception as e:
-            scores.append(0.0)
-            details.append({"area": area, "score": 0, "error": str(e)[:80]})
+            degraded += 1
+            details.append({"area": area, "score": None, "degraded": True,
+                            "error": str(e)[:80]})
 
-    overall = round(100 * sum(scores) / max(len(scores) * 5, 1), 1)
+    # Aggregate only over areas we could actually measure.
+    measured = len(scores)
+    overall = round(100 * sum(scores) / max(measured * 5, 1), 1) if measured else None
     history = _load_history()
-    prev = history[-1]["overall"] if history else None
+    prev = history[-1].get("overall") if history and history[-1].get("overall") is not None else None
 
     regression = None
-    if prev and overall < prev * 0.85:
+    # Only flag regression when we actually measured a meaningful share of the
+    # golden set. With only a few areas scorable (e.g. provider flaky), the
+    # aggregate is too noisy to conclude a real quality drop.
+    measurable_share = measured / len(GOLDEN) if GOLDEN else 0
+    if (prev is not None and overall is not None and overall < prev * 0.85
+            and measurable_share >= 0.5):
         regression = f"quality dropped {prev}% -> {overall}%"
         log.warning("EVAL REGRESSION: %s", regression)
 
     entry = {
         "ts": time.time(),
         "overall": overall,
+        "measured": measured,
+        "degraded": degraded,
+        "total": len(GOLDEN),
         "details": details,
         "regression": regression,
     }
     history.append(entry)
     _save_history(history)
 
-    log.info("eval harness: %d%% overall%s", overall,
-             f" (REGRESSION)" if regression else "")
+    suffix = " (degraded: %d/%d areas unmeasured)" % (degraded, len(GOLDEN)) if degraded else ""
+    log.info("eval harness: %s%% overall (%d measured)%s",
+             "n/a" if overall is None else overall, measured, suffix)
     return entry
 
 

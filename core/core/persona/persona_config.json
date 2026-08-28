@@ -1,0 +1,5 @@
+{
+  "heartbeat_enabled": false,
+  "heartbeat_interval_minutes": 30,
+  "system_overlay": ""
+}

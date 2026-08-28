@@ -41,7 +41,8 @@ class OmniRouteProvider(Provider):
             headers={"Authorization": "Bearer " + os.getenv("OMNIROUTE_API_KEY", ""),
                      "Content-Type": "application/json"},
             json={"model": self._map_model(model), "messages": messages,
-                  "max_tokens": max_tokens, "temperature": temperature},
+                  "max_tokens": max_tokens, "temperature": temperature,
+                  "stream": False},
             timeout=8,
         )
         r.raise_for_status()

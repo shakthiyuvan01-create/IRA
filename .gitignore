@@ -33,8 +33,38 @@ dashboard/staging/
 *.log
 ira_startup.log
 
+# ---- Local dev scratch (preview renders, QA scratch, archive) ----
+_scratch/
+_preview.py
+_qa_*.py
+_prev_*.png
+_polish_*.png
+
+# ---- Runtime lock files ----
+core/memory/*.lock
+
 # ---- OS / editor ----
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+
+# ---- Claude Code project instructions (kept local, not for public repo) ----
+CLAUDE.md
+
+# ---- Node/Next.js build artifacts (orb-ui is a sub-app) ----
+orb-ui/node_modules/
+orb-ui/.next/
+orb-ui/out/
+orb-ui/.vercel/
+node_modules/
+
+# ---- Runtime-generated content (code ships, artifacts stay local) ----
+Data/
+*.jpg
+*.jpeg
+*.png
+*.pptx
+*.db
+*.sqlite3
+*.task

@@ -4,6 +4,7 @@ import threading
 import json
 import sys
 import traceback
+import concurrent.futures
 from datetime import datetime
 from pathlib import Path
 
@@ -2645,6 +2646,21 @@ class JarvisLive:
 
         while True:
             try:
+                # Ensure the loop's default executor is ALIVE before each
+                # connect attempt. A previously shut-down executor (the
+                # "cannot schedule new futures after shutdown" fault) must be
+                # replaced here — not only after a failure — so the first
+                # connection of a fresh launch also works.
+                try:
+                    self._loop = asyncio.get_event_loop()
+                    _ex = getattr(self._loop, "_default_executor", None)
+                    if _ex is None or getattr(_ex, "_shutdown", False):
+                        self._loop.set_default_executor(
+                            concurrent.futures.ThreadPoolExecutor(max_workers=8)
+                        )
+                except Exception:
+                    pass
+
                 print("[JARVIS] Connecting...")
                 self.ui.set_state("THINKING")
                 config = self._build_config()
@@ -2694,6 +2710,25 @@ class JarvisLive:
                 await self._dashboard.broadcast({"type": "status", "state": "sleeping"})
 
             print("[JARVIS] Reconnecting in 3s...")
+            # The live voice loop (mic in / speaker out / Gemini Live) dies on
+            # launch with: RuntimeError: cannot schedule new futures after
+            # shutdown.  The original recovery only recreated the default
+            # executor when it was None — but after ThreadPoolExecutor.shutdown()
+            # the object still EXISTS, just in a dead state, so submit() keeps
+            # failing and the loop reconnects forever without ever recovering.
+            # Fix: ALWAYS force-recreate a fresh, live executor before the next
+            # connect attempt so run_in_executor / asyncio.to_thread schedule.
+            try:
+                self._loop = asyncio.get_event_loop()
+                old = getattr(self._loop, "_default_executor", None)
+                _dead = old is None or getattr(old, "_shutdown", False) or getattr(old, "_shutdown_lock", None) is not None and old._shutdown  # type: ignore[attr-defined]
+                if _dead or old is None:
+                    self._loop.set_default_executor(
+                        concurrent.futures.ThreadPoolExecutor(max_workers=8)
+                    )
+                    print("[JARVIS] ♻️ Recreated default executor (was shutdown).")
+            except Exception:
+                pass
             await asyncio.sleep(3)
 
 def main():

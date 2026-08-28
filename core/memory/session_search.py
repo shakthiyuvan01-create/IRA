@@ -54,14 +54,29 @@ def _get_db() -> sqlite3.Connection:
 
 
 def _ensure_fts_table(conn: sqlite3.Connection) -> None:
-    """Create the FTS5 virtual table if it doesn't exist."""
+    """Create the FTS5 virtual table if it doesn't exist.
+
+    Migrates legacy contentless tables (content='') which stored only the
+    index — SELECTing the content columns returned NULL. New tables store
+    the content inline so search results carry real text.
+    """
+    # Drop a legacy contentless table so the content-storing schema applies.
+    try:
+        row = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='messages_fts'"
+        ).fetchone()
+        if row and "content=''" in (row["sql"] or ""):
+            conn.execute("DROP TABLE messages_fts")
+            conn.commit()
+    except Exception:
+        pass
+
     conn.executescript("""
         CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
             row_id,
             timestamp,
             role,
             text,
-            content='',
             tokenize='porter unicode61'
         );
 

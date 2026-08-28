@@ -80,27 +80,140 @@ GESTURE_MAP: list[GestureAction] = [
 
 # â”€â”€ Hand Tracking Engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+# Standard MediaPipe hand skeleton (21 landmarks) — used for preview drawing
+# when the legacy solutions API is unavailable (Tasks-only mediapipe builds).
+_HAND_CONNECTIONS: tuple[tuple[int, int], ...] = (
+    (0, 1), (1, 2), (2, 3), (3, 4),          # thumb
+    (0, 5), (5, 6), (6, 7), (7, 8),          # index
+    (5, 9), (9, 10), (10, 11), (11, 12),     # middle
+    (9, 13), (13, 14), (14, 15), (15, 16),   # ring
+    (13, 17), (17, 18), (18, 19), (19, 20),  # pinky
+    (0, 17),                                 # palm base
+)
+
+_HAND_MODEL_URL = (
+    "https://storage.googleapis.com/mediapipe-assets/hand_landmarker.task"
+)
+
+
+def _hand_model_path() -> Path:
+    return Path(__file__).resolve().parent.parent / "core" / "config" / "models" / "hand_landmarker.task"
+
+
+def _ensure_hand_model() -> Path:
+    """Return a local hand_landmarker.task, downloading it on first use."""
+    path = _hand_model_path()
+    if path.exists():
+        return path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    import urllib.request
+    print(f"[HandGesture] Downloading hand model -> {path}")
+    urllib.request.urlretrieve(_HAND_MODEL_URL, path)
+    return path
+
+
+class _LandmarkList:
+    """Adapter exposing `.landmark` (the legacy interface) over a Tasks-API
+    landmark list, so recognizers and drawers stay API-agnostic."""
+
+    __slots__ = ("landmark",)
+
+    def __init__(self, landmarks):
+        self.landmark = landmarks
+
+
 class HandTracker:
-    """Wraps MediaPipe Hands for landmark detection."""
+    """Wraps MediaPipe hand tracking.
+
+    Uses the legacy `solutions.hands` API when the installed mediapipe ships
+    it (official wheels); falls back to the Tasks API `HandLandmarker` for
+    Tasks-only builds — the dual-API pattern from Brahma-AI-Lite.
+    """
 
     def __init__(self, max_hands: int = 2, min_detection_confidence: float = 0.7):
-        self._mp_hands = mp.solutions.hands
-        self._hands = self._mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=max_hands,
-            min_detection_confidence=min_detection_confidence,
-            min_tracking_confidence=0.6,
-        )
+        self._legacy = None
+        self._task_landmarker = None
+        self._Image = None
+        self._ImageFormat = None
+        try:
+            self._legacy = mp.solutions.hands.Hands(
+                static_image_mode=False,
+                max_num_hands=max_hands,
+                min_detection_confidence=min_detection_confidence,
+                min_tracking_confidence=0.6,
+            )
+        except Exception:
+            self._legacy = None
+
+        if self._legacy is None:
+            self._init_tasks()
+
+    def _init_tasks(self) -> None:
+        # The mediapipe.tasks.python import chain (genai → jax) can fail
+        # intermittently — retry once before giving up.
+        last_exc = None
+        for _attempt in range(2):
+            try:
+                from mediapipe.tasks.python.vision import HandLandmarker
+                break
+            except Exception as exc:
+                last_exc = exc
+                time.sleep(1.0)
+        else:
+            raise RuntimeError(
+                "mediapipe Tasks API unavailable — reinstall mediapipe"
+            ) from last_exc
+        # The Image wrapper location varies across mediapipe builds:
+        # newer Tasks builds ship mediapipe.tasks.python.vision.core.image.
+        image_mod = None
+        for modname in (
+            "mediapipe.tasks.python.vision.core.image",
+            "mediapipe.tasks.python.core.vision.image",
+        ):
+            try:
+                mod = __import__(modname, fromlist=["Image", "ImageFormat"])
+                Image = getattr(mod, "Image")
+                ImageFormat = getattr(mod, "ImageFormat")
+                image_mod = mod
+                break
+            except Exception:
+                continue
+        if image_mod is None:
+            raise RuntimeError(
+                "mediapipe Tasks API present but the Image wrapper is missing — "
+                "upgrade mediapipe (0.10.18+) for the Tasks fallback"
+            )
+        self._Image = Image
+        self._ImageFormat = ImageFormat
+        self._task_landmarker = HandLandmarker.create_from_model_path(str(_ensure_hand_model()))
 
     def process(self, frame: np.ndarray) -> list[Any]:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        result = self._hands.process(rgb)
-        if result.multi_hand_landmarks:
-            return result.multi_hand_landmarks
+        if self._legacy is not None:
+            result = self._legacy.process(rgb)
+            if result.multi_hand_landmarks:
+                return result.multi_hand_landmarks
+            return []
+
+        img = self._Image(self._ImageFormat.SRGB, np.ascontiguousarray(rgb))
+        result = self._task_landmarker.detect(img)
+        if getattr(result, "hand_landmarks", None):
+            return [_LandmarkList(lms) for lms in result.hand_landmarks]
         return []
 
     def close(self):
-        self._hands.close()
+        if self._legacy is not None:
+            try:
+                self._legacy.close()
+            except Exception:
+                pass
+            self._legacy = None
+        if self._task_landmarker is not None:
+            try:
+                self._task_landmarker.close()
+            except Exception:
+                pass
+            self._task_landmarker = None
 
 
 # â”€â”€ Gesture Recognizer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -358,7 +471,13 @@ class HandGestureService:
             self._running = False
             return
 
-        self._tracker = HandTracker()
+        try:
+            self._tracker = HandTracker()
+        except Exception as exc:
+            if self._on_gesture:
+                self._on_gesture(f"Gesture engine unavailable: {exc}")
+            self._running = False
+            return
 
         if self._on_gesture:
             self._on_gesture("Gesture control started")
@@ -426,12 +545,15 @@ class HandGestureService:
             self._on_gesture("Gesture control stopped")
 
     def _draw_landmarks(self, frame, hand_landmarks):
-        mp_drawing = mp.solutions.drawing_utils
-        mp_drawing.draw_landmarks(
-            frame, hand_landmarks, mp.solutions.hands.HAND_CONNECTIONS,
-            mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2),
-            mp_drawing.DrawingSpec(color=(0, 200, 255), thickness=2),
-        )
+        # API-agnostic: accept legacy NormalizedLandmarkList or Tasks-API
+        # landmark list (the _LandmarkList adapter exposes .landmark for both)
+        lms = hand_landmarks.landmark if hasattr(hand_landmarks, "landmark") else hand_landmarks
+        h, w = frame.shape[:2]
+        pts = [(int(l.x * w), int(l.y * h)) for l in lms]
+        for a, b in _HAND_CONNECTIONS:
+            cv2.line(frame, pts[a], pts[b], (0, 200, 255), 2)
+        for x, y in pts:
+            cv2.circle(frame, (x, y), 4, (0, 255, 0), -1)
 
     def _draw_gesture_text(self, frame, gesture: Gesture, h: int, w: int):
         label = gesture.value.upper().replace("_", " ")

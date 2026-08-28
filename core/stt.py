@@ -61,6 +61,7 @@ class WhisperSTT:
                 beam_size=1,                       # greedy — 2-3x faster
                 best_of=1,
                 condition_on_previous_text=False,  # no hallucinations, faster
+                no_speech_threshold=0.6,           # drop silence/noise → hallucinated text
                 vad_filter=True,
                 vad_parameters={"min_silence_duration_ms": 300},
             )

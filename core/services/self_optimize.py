@@ -99,7 +99,12 @@ def run_cycle(force: bool = False) -> Dict[str, Any]:
     if not details:
         return {"error": "eval returned no details"}
 
-    weakest = min(details, key=lambda d: d["score"])
+    # Only scored (non-degraded) areas are comparable; degraded ones are
+    # unmeasured, not "weak". Guard against an all-degraded result.
+    scored = [d for d in details if d.get("score") is not None]
+    if not scored:
+        return {"error": "eval returned no measurable areas (provider degraded)"}
+    weakest = min(scored, key=lambda d: d["score"])
     weakest_area = weakest["area"]
     weakest_score = weakest["score"]
 

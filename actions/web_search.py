@@ -18,6 +18,52 @@ def _get_api_key() -> str:
         return json.load(f)["gemini_api_key"]
 
 
+def scrape_webpage(url: str, max_chars: int = 6000) -> str:
+    """Fetch a URL and return its readable text content (agentic-os scraper value).
+
+    Minimal, dependency-free extractor: GET with a real browser UA, strip
+    scripts/styles/tags, unescape entities, collapse whitespace. Returns the
+    first max_chars characters of visible text. Never raises — returns an
+    error message string on failure.
+    """
+    import re
+    import urllib.request
+
+    url = (url or "").strip()
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                           "AppleWebKit/537.36 (KHTML, like Gecko) "
+                           "Chrome/126.0 Safari/537.36"),
+            "Accept-Language": "en-US,en;q=0.9",
+        })
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw = resp.read(2_000_000)   # cap at ~2MB
+            ctype = resp.headers.get("Content-Type", "")
+        if "text/html" not in ctype and "text/plain" not in ctype and "xml" not in ctype:
+            return f"Page returned {ctype or 'unknown content type'} — not readable text."
+        try:
+            html = raw.decode("utf-8", errors="replace")
+        except Exception:
+            html = raw.decode("latin-1", errors="replace")
+        html = re.sub(r"<(script|style|noscript)[^>]*>.*?</\1>", " ", html,
+                      flags=re.IGNORECASE | re.DOTALL)
+        html = re.sub(r"<!--.*?-->", " ", html, flags=re.DOTALL)
+        text = re.sub(r"<[^>]+>", " ", html)
+        text = re.sub(r"\s+", " ", text)
+        import html as _html
+        text = _html.unescape(text).strip()
+        if not text:
+            return "Page contained no readable text."
+        if len(text) > max_chars:
+            text = text[:max_chars] + "…"
+        return f"[{url}]\n{text}"
+    except Exception as e:
+        return f"Could not fetch {url}: {type(e).__name__}: {e}"
+
+
 def _gemini_search(query: str) -> str:
     from google import genai
 
@@ -53,6 +99,32 @@ def _ddg_search(query: str, max_results: int = 6) -> list[dict]:
                 "snippet": r.get("body",   ""),
                 "url":     r.get("href",   ""),
             })
+    return results
+
+
+def _ddg_news(query: str, max_results: int = 8) -> list[dict]:
+    """DDG news search — returns actual articles, not website homepages.
+
+    Used by the background topic monitor (actions/background_monitor.py).
+    """
+    try:
+        from ddgs import DDGS
+    except ImportError:
+        from duckduckgo_search import DDGS
+
+    results = []
+    try:
+        with DDGS() as ddgs:
+            for r in ddgs.news(query, max_results=max_results):
+                results.append({
+                    "title":   r.get("title",  ""),
+                    "snippet": r.get("body",   ""),
+                    "url":     r.get("url",    ""),
+                    "source":  r.get("source", ""),
+                })
+    except Exception as e:
+        print(f"[WebSearch] ⚠️ DDG news() failed ({e}) — falling back to text search")
+        results = _ddg_search(query, max_results=max_results)
     return results
 
 

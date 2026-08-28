@@ -223,6 +223,15 @@ def _clipboard_get() -> str:
     return "(copied — pyperclip unavailable for read)"
 
 
+def _clipboard_copy(text: str) -> str:
+    if not text:
+        return _clipboard_get()
+    if _PYPERCLIP:
+        pyperclip.copy(text)
+        return f"Copied to clipboard: {text[:80]}{'…' if len(text) > 80 else ''}"
+    return "pyperclip unavailable — cannot set clipboard"
+
+
 def _clipboard_paste(text: str) -> str:
     if _PYPERCLIP:
         pyperclip.copy(text)
@@ -388,8 +397,8 @@ def computer_control(
       hotkey        — key combination
       press         — single key
       scroll        — scroll the wheel
-      copy          — read clipboard
-      paste         — write + paste clipboard
+      copy          — copy the 'text' value to the clipboard (write); no text → read
+      paste         — write text + paste it at the cursor
       screenshot    — capture screen (safe path only)
       wait          — sleep N seconds
       clear_field   — select-all + delete
@@ -454,7 +463,7 @@ def computer_control(
             )
 
         if action == "copy":
-            return _clipboard_get()
+            return _clipboard_copy(params.get("text", ""))
 
         if action == "paste":
             return _clipboard_paste(params.get("text", ""))

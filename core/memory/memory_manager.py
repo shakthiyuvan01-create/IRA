@@ -268,3 +268,56 @@ def forget(key: str, category: str = "notes") -> str:
 
 
 forget_memory = forget
+
+
+# ── Session memory (Mark-L style) ────────────────────────────────────────────
+
+_SESSION_MAX = 8
+
+
+def save_session_summary(summary: str, language: str = "") -> None:
+    """Append a 1-2 sentence session summary to long_term.json['sessions']."""
+    summary = (summary or "").strip()
+    if not summary:
+        return
+    memory   = load_memory()
+    sessions = memory.get("sessions", [])
+    if not isinstance(sessions, list):
+        sessions = []
+    entry: dict = {
+        "date":    datetime.now().strftime("%Y-%m-%d"),
+        "summary": summary[:280],
+    }
+    if language:
+        entry["language"] = language
+    sessions.append(entry)
+    memory["sessions"] = sessions[-_SESSION_MAX:]
+    with _lock:
+        MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        MEMORY_PATH.write_text(
+            json.dumps(memory, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    print(f"[Memory] 📝 Session saved ({entry['date']}): {summary[:60]}…")
+
+
+def pop_last_session() -> dict | None:
+    """Return AND remove the most recent session entry (consumed on use)."""
+    with _lock:
+        if not MEMORY_PATH.exists():
+            return None
+        try:
+            memory   = json.loads(MEMORY_PATH.read_text(encoding="utf-8"))
+            sessions = memory.get("sessions", [])
+            if not isinstance(sessions, list) or not sessions:
+                return None
+            entry = sessions.pop()
+            memory["sessions"] = sessions
+            MEMORY_PATH.write_text(
+                json.dumps(memory, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            return entry
+        except Exception as e:
+            print(f"[Memory] ⚠️ pop_last_session error: {e}")
+            return None

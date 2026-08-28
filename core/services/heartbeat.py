@@ -156,7 +156,7 @@ def supervisor():
     """Called by background task manager; checks interval before running."""
     global _last_run
     config_path = BASE_DIR / "core" / "persona" / "persona_config.json"
-    enabled = True
+    enabled = False
     interval_min = 30
     try:
         if config_path.exists():

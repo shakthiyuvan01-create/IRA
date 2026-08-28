@@ -22,7 +22,7 @@ ABSOLUTE RULES:
 - NEVER reference previous step results in parameters. Every step is independent.
 - Use web_search for ANY information retrieval, research, or current data.
 - Use file_controller to save content to disk.
-- Use cmd_control to open files or run system commands.
+- Use run_command to open files or run system commands.
 - Max 5 steps. Use the minimum steps needed.
 
 AVAILABLE TOOLS AND THEIR PARAMETERS:
@@ -56,9 +56,9 @@ file_controller
   name: string — filename
   content: string — file content (for write/create_file)
 
-cmd_control
-  task: string (required) — natural language description of what to do
-  visible: boolean (optional)
+run_command
+  command: string (required) — the shell command to run
+  confirm: boolean (optional) — set true to bypass the destructive-command guard
 
 computer_settings
   action: string (required)
@@ -119,7 +119,7 @@ Steps:
 web_search | query: "mechanical engineering overview definition history"
 web_search | query: "mechanical engineering applications and future trends"
 file_controller | action: write, path: desktop, name: mechanical_engineering.txt, content: "MECHANICAL ENGINEERING RESEARCH\n\nThis file will be filled with web research results."
-cmd_control | task: "open mechanical_engineering.txt on desktop with notepad"
+run_command | command: "notepad $HOME/Desktop/mechanical_engineering.txt"
 
 Goal: "What is the price of Bitcoin"
 Steps:
@@ -219,7 +219,7 @@ def _rewrite_generated_step(step: dict, goal: str) -> None:
 
 
 def create_plan(goal: str, context: str = "") -> dict:
-    import google.generativeai as genai
+    from core.agent import _genai_compat as genai
 
     genai.configure(api_key=_get_api_key())
     model = genai.GenerativeModel(
@@ -288,7 +288,7 @@ def _fallback_plan(goal: str) -> dict:
 
 
 def replan(goal: str, completed_steps: list, failed_step: dict, error: str) -> dict:
-    import google.generativeai as genai
+    from core.agent import _genai_compat as genai
 
     genai.configure(api_key=_get_api_key())
     model = genai.GenerativeModel(
