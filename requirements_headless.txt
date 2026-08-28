@@ -6,10 +6,11 @@
 # google-genai==1.47.0 is a `py3-none-any` wheel -> works on 3.9.
 # Use `miniaudio` (not sounddevice): it vendors its own audio backend, so it
 # works on a clean macOS WITHOUT system PortAudio / Homebrew.
-# Pin miniaudio==1.58 — last version with a prebuilt macOS wheel for 3.9/3.10.
+# Pin miniaudio==1.71 — callback-based API (CaptureDevice/PlaybackDevice).
+# Has a prebuilt cp39 macosx wheel; 1.58 does NOT ship a cp39 mac wheel on PyPI.
 
 google-genai==1.47.0
-miniaudio==1.58
+miniaudio==1.71
 fastapi>=0.110
 uvicorn[standard]>=0.27
 zeroconf>=0.131
