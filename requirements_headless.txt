@@ -13,7 +13,7 @@ miniaudio==1.58
 fastapi>=0.110
 uvicorn[standard]>=0.27
 zeroconf>=0.131
-cryptography>=42.0
+cryptography==44.0.2   # last version with a prebuilt cp39 macosx wheel (50.x needs Xcode/OpenSSL source build)
 python-dotenv>=1.0
 websockets>=12.0
 pydantic>=2.5
