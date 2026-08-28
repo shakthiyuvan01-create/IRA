@@ -1,0 +1,16 @@
+# Headless IRA room-hub deps — minimal, for the 2013 MacBook Air (disk-full safe)
+# Only what the voice loop + brahma_connect gateway need.
+# NO PyQt6 / torch / whisper / opencv / mediapipe / playwright / pyautogui.
+#
+# NOTE: use `miniaudio` (not sounddevice) — it vendors its own audio backend,
+# so it works on a clean macOS WITHOUT system PortAudio / Homebrew.
+
+google-genai>=1.40
+miniaudio>=1.70
+fastapi>=0.110
+uvicorn[standard]>=0.27
+zeroconf>=0.131
+cryptography>=42.0
+python-dotenv>=1.0
+websockets>=12.0
+pydantic>=2.5
