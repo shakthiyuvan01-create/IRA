@@ -222,9 +222,12 @@ async def main() -> None:
                 print("[Hub] Connected to Gemini Live. Speak into your headset.")
                 capture_dev.start(cg)
                 playback_dev.start(pg)
-                async with asyncio.TaskGroup() as tg:
-                    tg.create_task(send_realtime(session))
-                    tg.create_task(receive_audio(session))
+                # asyncio.TaskGroup is 3.11+; use gather for 3.9 compatibility
+                tasks = [
+                    asyncio.ensure_future(send_realtime(session)),
+                    asyncio.ensure_future(receive_audio(session)),
+                ]
+                await asyncio.gather(*tasks, return_exceptions=True)
         except asyncio.CancelledError:
             raise
         except Exception as e:
