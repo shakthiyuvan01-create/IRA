@@ -30,7 +30,7 @@ def _default_registry_path(base_dir: Path) -> Path:
     return Path(base_dir) / "core" / "config" / "brahma_connect" / "devices.json"
 
 
-@dataclass(slots=True)
+@dataclass
 class BrahmaGatewayConfig:
     host: str = "127.0.0.1"      # IRA: loopback-only by default (fail closed on LAN)
     port: int = 8765

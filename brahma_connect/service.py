@@ -10,7 +10,7 @@ from typing import Any
 from .gateway.server import BrahmaGateway, BrahmaGatewayConfig
 
 
-@dataclass(slots=True)
+@dataclass
 class BrahmaConnectService:
     """Small runtime wrapper around the gateway server."""
 

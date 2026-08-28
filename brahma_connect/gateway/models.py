@@ -9,7 +9,7 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-@dataclass(slots=True)
+@dataclass
 class PairingOffer:
     service: str
     host: str
@@ -31,7 +31,7 @@ class PairingOffer:
         }
 
 
-@dataclass(slots=True)
+@dataclass
 class DeviceRecord:
     device_id: str
     name: str

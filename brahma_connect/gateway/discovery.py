@@ -16,7 +16,7 @@ def local_ip() -> str:
         sock.close()
 
 
-@dataclass(slots=True)
+@dataclass
 class GatewayDiscovery:
     service_name: str = "_BRAHMA._tcp.local."
     _zeroconf: Any = None

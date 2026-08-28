@@ -9,7 +9,7 @@ from fastapi import WebSocket
 from .models import DeviceRecord
 
 
-@dataclass(slots=True)
+@dataclass
 class ConnectionState:
     websocket: WebSocket
     device_id: str = ""
