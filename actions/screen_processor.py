@@ -447,6 +447,66 @@ def warmup_session(player=None) -> None:
     except Exception as e:
         print(f"[Vision] ⚠️  Warmup failed: {e}")
 
+
+# ── Text-vision path (JARVIS "I saw X" mode) ────────────────────────────────
+# The live audio session above is Gemini-only. This path analyzes a screen or
+# camera frame through IRA's MAIN brain (the local router at localhost:20128,
+# with Gemini as a safety net) and returns plain text — which we then SPEAK via
+# IRA's normal TTS voice and remember. This is what makes IRA behave like the
+# Iron-Man JARVIS: it looks, understands, describes, and remembers what it saw.
+def vision_text(angle: str = "screen", question: str = "What do you see? Be brief.",
+               player=None) -> str:
+    """Capture `angle` ('screen'|'camera'), analyze it, speak + return the answer."""
+    try:
+        if angle == "camera":
+            image_bytes, mime_type = _capture_camera()
+        else:
+            image_bytes, mime_type = _capture_screen()
+    except Exception as e:
+        msg = f"I couldn't capture the {angle}: {e}"
+        print(f"[Vision] ❌ {msg}")
+        if player is not None:
+            try:
+                player.speak(msg)
+            except Exception:
+                pass
+        return msg
+
+    b64 = base64.b64encode(image_bytes).decode("ascii")
+    answer = _vision_via_local(b64, mime_type, question)
+    if not answer:
+        answer = _vision_via_gemini(b64, mime_type, question)
+
+    if answer:
+        if player is not None:
+            try:
+                player.speak(answer)
+            except Exception as e:
+                print(f"[Vision] ⚠️  speak failed: {e}")
+        print(f"[Vision] 💬 {answer}")
+    return answer or "I looked but couldn't interpret what I saw."
+
+
+def _vision_via_local(b64: str, mime: str, question: str) -> str:
+    """Analyze an image through IRA's main brain (local router), if configured."""
+    try:
+        from core.providers.localrouter import LocalRouterProvider
+        prov = LocalRouterProvider()
+        return prov.vision(question, b64, mime, max_tokens=900)
+    except Exception as e:
+        print(f"[Vision] ⚠️  local-router vision failed (fallback Gemini): {e}")
+        return ""
+
+
+def _vision_via_gemini(b64: str, mime: str, question: str) -> str:
+    """Final safety-net vision via the Gemini provider."""
+    try:
+        from core.providers.gemini import GeminiProvider
+        return GeminiProvider().vision(question, b64, mime, max_tokens=900)
+    except Exception as e:
+        print(f"[Vision] ⚠️  Gemini vision failed: {e}")
+        return ""
+
 if __name__ == "__main__":
     print("[TEST] screen_processor.py")
     print("=" * 52)

@@ -28,6 +28,7 @@ from .ollama import OllamaProvider
 from .nararouter import NaraRouterProvider
 from .bluesminds import BluesMindsProvider
 from .omniroute import OmniRouteProvider
+from .localrouter import LocalRouterProvider
 
 log = logging.getLogger("providers.manager")
 
@@ -69,6 +70,7 @@ def _cache_success(model: Optional[str], provider: str):
 # ── All providers ──────────────────────────────────────────────────────────
 
 _ALL = {
+    "local":  LocalRouterProvider(),   # FAST primary: self-hosted router on localhost
     "github": GitHubModelsProvider(),
     "gemini": GeminiProvider(),
     "nara":   NaraRouterProvider(),
@@ -89,7 +91,7 @@ class ProviderManager:
 
     def __init__(self):
         order = os.getenv("AI_PROVIDER_ORDER",
-                          "omniroute,gemini,ollama")
+                          "local,gemini,ollama")
         self.chain = [_ALL[n.strip()] for n in order.split(",") if n.strip() in _ALL]
         self.last_used: Optional[str] = None
         self.last_errors: List[str] = []

@@ -1340,6 +1340,22 @@ class JarvisLive:
         elif not self.ui.muted:
             self.ui.set_state("LISTENING")
 
+    def _log_seen(self, angle: str, question: str, answer: str) -> None:
+        """Persist what IRA saw (screen/camera) to memory so it can refer back.
+
+        JARVIS remembers observations: errors on screen, who is at the camera,
+        an unfinished task. Stored in the 'memory' file as a dated observation.
+        """
+        try:
+            from core.memory.memory_engine import create_memory_store
+            store = create_memory_store(target="memory")
+            ts = time.strftime("%Y-%m-%d %H:%M", time.localtime())
+            src = "camera" if angle == "camera" else "screen"
+            line = f"[{ts}] Saw via {src}: Q='{question}' → {answer}"
+            store.add("memory", line)
+        except Exception as e:
+            print(f"[JARVIS] ⚠️  _log_seen failed: {e}")
+
     def speak(self, text: str):
         if not text or not text.strip():
             return
@@ -1556,6 +1572,17 @@ class JarvisLive:
                         persona_blocks.append(content)
             if persona_blocks:
                 parts.append("=== PERSONA ===\n" + "\n\n".join(persona_blocks))
+
+            # JARVIS core identity + emotional tone (Iron-Man style companion).
+            # Editable in core/persona/JARVIS.md so it survives code updates.
+            try:
+                jarvis_path = BASE_DIR / "core" / "persona" / "JARVIS.md"
+                if jarvis_path.exists():
+                    _jb = jarvis_path.read_text(encoding="utf-8").strip()
+                    if _jb:
+                        parts.append("=== JARVIS_CORE ===\n" + _jb)
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -1717,13 +1744,22 @@ class JarvisLive:
                 result = r or "Done."
 
             elif name == "screen_process":
-                threading.Thread(
-                    target=screen_process,
-                    kwargs={"parameters": args, "response": None,
-                            "player": self.ui, "session_memory": None},
-                    daemon=True
-                ).start()
-                result = "Vision module activated. Stay completely silent — vision module will speak directly."
+                # JARVIS-style vision: capture screen/camera, analyze through the
+                # MAIN brain, SPEAK the answer and remember what was seen.
+                q_text = (args.get("text") or args.get("user_text") or
+                          "What do you see? Describe it briefly.").strip()
+                ang = (args.get("angle") or "screen").lower().strip()
+                try:
+                    from actions.screen_processor import vision_text
+                    captured = vision_text(angle=ang, question=q_text, player=self.ui)
+                    # Remember what IRA saw (JARVIS memory).
+                    try:
+                        self._log_seen(ang, q_text, captured)
+                    except Exception:
+                        pass
+                    result = captured or "I looked but couldn't interpret what I saw."
+                except Exception as e:
+                    result = f"Vision error: {e}"
 
             elif name == "slack_send":
                 r = await loop.run_in_executor(None, lambda: slack_send(parameters=args, response=None, player=self.ui))
