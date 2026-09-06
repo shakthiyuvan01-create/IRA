@@ -19,7 +19,7 @@ if not DEFAULT_WORKSPACE.parent.exists():
 
 
 def _resolve_claude() -> str:
-    """Locate the Claude Code CLI executable."""
+    """Locate the code engine CLI executable."""
     found = shutil.which("claude")
     if found:
         return found
@@ -29,7 +29,7 @@ def _resolve_claude() -> str:
             "claude.exe")
     if cand.exists():
         return str(cand)
-    raise FileNotFoundError("Claude Code CLI (claude) not found on PATH.")
+    raise FileNotFoundError("Code engine CLI (claude) not found on PATH.")
 
 
 def _selected_workspace(parameters: dict[str, Any]) -> Path:
@@ -62,7 +62,7 @@ def run_developer_mode_request(parameters: dict[str, Any], speak=None) -> str:
     # Build a self-contained prompt. Claude Code reads CLAUDE.md from cwd, but we
     # keep the instruction explicit so behaviour is predictable.
     prompt = (
-        f"You are IRA's coding engine, running inside Claude Code. "
+        f"You are IRA's coding engine. "
         f"Create the requested project/files in the current working directory "
         f"({workspace}).\n\nTask:\n{description}\n\n"
         f"Requirements:\n"
@@ -73,7 +73,7 @@ def run_developer_mode_request(parameters: dict[str, Any], speak=None) -> str:
 
     if speak:
         try:
-            speak(f"Starting Claude Code to build: {description[:120]}")
+            speak(f"Starting code engine to build: {description[:120]}")
         except Exception:
             pass
 
@@ -102,7 +102,7 @@ def run_developer_mode_request(parameters: dict[str, Any], speak=None) -> str:
             bufsize=1,
         )
     except Exception as e:
-        return f"Failed to launch Claude Code: {e}"
+        return f"Failed to launch code engine: {e}"
 
     assert proc.stdout is not None
     for raw in proc.stdout:
@@ -134,7 +134,7 @@ def run_developer_mode_request(parameters: dict[str, Any], speak=None) -> str:
             snippet = last[-1] if last else ""
             if len(snippet) > 3:
                 try:
-                    speak(f"Claude Code: {snippet[:140]}")
+                    speak(f"Code engine: {snippet[:140]}")
                     spoke_at = time.time()
                 except Exception:
                     pass
@@ -142,11 +142,11 @@ def run_developer_mode_request(parameters: dict[str, Any], speak=None) -> str:
     proc.wait()
     final = "\n".join(p for p in result_parts if p).strip()
     if not final:
-        final = f"Claude Code finished (exit {proc.returncode}). No text output captured."
+        final = f"Code engine finished (exit {proc.returncode}). No text output captured."
 
     if speak:
         try:
-            speak("Claude Code finished the build.")
+            speak("Code engine finished the build.")
         except Exception:
             pass
 

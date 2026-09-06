@@ -350,11 +350,11 @@ def _create_generic(doc, params):
 
 def _docx_result_path(source_path: Path | None, action: str, output_path: str | None, title: str) -> Path:
     if output_path:
-        fallback = title or (source_path.stem if source_path else "Brahma_AI_Document")
+        fallback = title or (source_path.stem if source_path else "IRA_Document")
         return _resolve_output_path(output_path, title=fallback, ext=".docx", fallback_name=fallback)
     if source_path:
         return source_path.with_name(f"{source_path.stem}_{action}.docx")
-    return _resolve_output_path(None, title=title, ext=".docx", fallback_name="Brahma_AI_Document")
+    return _resolve_output_path(None, title=title, ext=".docx", fallback_name="IRA_Document")
 
 
 def _load_doc(path: Path):

@@ -973,16 +973,16 @@ TOOL_DECLARATIONS = [
     {
         "name": "set_voice",
         "description": (
-            "Switch IRA's voice between Google Gemini (default, low latency) and ElevenLabs (premium quality). "
-            "When switching to ElevenLabs, the API key must be configured in config/api_keys.json. "
-            "Default is 'gemini'. Use 'elevenlabs' for higher quality voice."
+            "Switch IRA's voice between built-in neural voice (default, fast) and premium voice (high quality). "
+            "Premium voice requires an API key configured in config/api_keys.json. "
+            "Default is 'neural'. Use 'premium' for higher quality voice."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "mode": {
                     "type": "STRING",
-                    "description": "'gemini' for Google's built-in voice (Charon) | 'elevenlabs' for ElevenLabs premium voice"
+                    "description": "'neural' for built-in fast voice | 'premium' for high quality voice"
                 },
             },
             "required": ["mode"]
@@ -1042,10 +1042,10 @@ TOOL_DECLARATIONS = [
     {
         "name": "claude_code",
         "description": (
-            "Bridges to Claude Code CLI for complex development tasks. "
+            "IRA's code engine for complex development tasks. "
             "Use for: building full websites, coding projects, code editing, "
             "app development, running developer workflows, or any complex "
-            "software engineering task that needs the full Claude Code environment."
+            "software engineering task that needs the full code engine."
         ),
         "parameters": {
             "type": "OBJECT",
@@ -1303,7 +1303,7 @@ class JarvisLive:
             QTimer.singleShot(0, lambda: asyncio.create_task(self._process_text_chat(text)))
 
     def _on_screen_captured(self, image_bytes: bytes, mime_type: str):
-        """Screen capture — calls Gemini vision API directly via text path."""
+        """Screen capture — analyzes via vision provider."""
         try:
             import base64
             b64 = base64.b64encode(image_bytes).decode("ascii")
@@ -1347,15 +1347,15 @@ class JarvisLive:
             print(f"[JARVIS] ⚠️  _log_seen failed: {e}")
 
     def speak(self, text: str):
-        """Speak text via Edge TTS (AndrewNeural voice) through your computer's speaker.
+        """Speak text via neural voice through your computer's speaker.
         
-        Falls back to ElevenLabs if tts_mode is set to 'elevenlabs' and API key exists.
-        ElevenLabs mode requires elevenlabs_api_key in config/api_keys.json.
+        Falls back to premium voice if tts_mode is set to 'premium' and API key exists.
+        Premium voice mode requires an API key in config/api_keys.json.
         """
         if not text or not text.strip():
             return
 
-        # Check if ElevenLabs mode is active
+        # Check if premium voice mode is active
         try:
             cfg_path = BASE_DIR / "core" / "persona" / "persona_config.json"
             if cfg_path.exists():
@@ -1367,7 +1367,7 @@ class JarvisLive:
         except Exception:
             pass
 
-        # Default: Edge TTS — plays on your selected output device
+        # Default: neural voice — plays on your selected output device
         self._speak_edge_tts(text)
 
     def _play_media_on_device(self, path: str) -> None:
@@ -1421,7 +1421,7 @@ class JarvisLive:
             print(f"[Audio] fallback playback failed: {e2}")
 
     def _speak_edge_tts(self, text: str):
-        """Speak via Edge TTS — synthesizes to temp .mp3 then plays via OS."""
+        """Speak via neural voice — synthesizes to temp .mp3 then plays via OS."""
         import subprocess, tempfile, os, threading, shutil
 
         voice = "en-US-AndrewNeural"
@@ -1470,7 +1470,7 @@ class JarvisLive:
         pass  # unused — _speak_edge_tts uses threading instead
 
     def _speak_elevenlabs(self, text: str):
-        """Speak text using ElevenLabs TTS, playing on the configured output device."""
+        """Speak text using premium voice, playing on the configured output device."""
         try:
             import requests
             from pathlib import Path
@@ -1489,7 +1489,7 @@ class JarvisLive:
                     api_key = _cfg.get("elevenlabs_api_key", "")
 
             if not api_key:
-                print("[ElevenLabs] No API key configured")
+                print("[Premium Voice] No API key configured")
                 return
 
             voice_id = "pNInz6obpgDQGcFmaJgB"  # Default voice (Nicole/Adam depending)
@@ -1523,9 +1523,9 @@ class JarvisLive:
             _sd.play(samples, decoded.sample_rate, device=output_device)
             _sd.wait()
         except ImportError:
-            print("[ElevenLabs] Missing dependency: pip install miniaudio")
+            print("[Premium Voice] Missing dependency: pip install miniaudio")
         except Exception as e:
-            print(f"[ElevenLabs] Error: {e}")
+            print(f"[Premium Voice] Error: {e}")
 
     def speak_error(self, tool_name: str, error: str):
         short = str(error)[:120]
@@ -1537,7 +1537,7 @@ class JarvisLive:
     async def _process_text_chat(self, text: str) -> None:
         """
         Core text chat handler: routes text input through the AI model,
-        speaks the response via Edge TTS, and logs to chat history.
+        speaks the response via neural voice, and logs to chat history.
         """
         import time as _time  # for monotonic timing
         self._last_user_speech = _time.monotonic()
@@ -1589,7 +1589,7 @@ class JarvisLive:
                         }))
                     except Exception:
                         pass
-                # Speak response via Edge TTS
+                # Speak response via neural voice
                 self.speak(response_text)
                 self.ui.set_state("LISTENING")
             else:
@@ -1612,15 +1612,15 @@ class JarvisLive:
     def interrupt(self):
         """Interrupt IRA's current speech/response immediately.
         
-        With text-based chat + Edge TTS, this just clears speaking state.
-        The Edge TTS worker will finish naturally on next iteration.
+        With text-based chat + neural voice, this just clears speaking state.
+        The voice worker will finish naturally on next iteration.
         """
         self.set_speaking(False)
         self.ui.set_state("LISTENING")
         self.ui.write_log("SYS: Interrupted")
 
     def _on_live_screen_captured(self, image_bytes: bytes, mime_type: str):
-        """Handle a live screen capture — uses Gemini vision provider directly."""
+        """Handle a live screen capture — uses vision provider."""
         try:
             import base64
             b64 = base64.b64encode(image_bytes).decode("ascii")
@@ -2168,9 +2168,9 @@ class JarvisLive:
                         cfg_path.write_text(_json.dumps(_cfg, indent=2) + "\n", encoding="utf-8")
 
                         if mode == "elevenlabs":
-                            result = "Voice switched to ElevenLabs premium. Your next response will use ElevenLabs voice."
+                            result = "Voice switched to premium quality. Your next response will use premium voice."
                         else:
-                            result = "Voice switched to Google Gemini (Charon). Default low-latency voice."
+                            result = "Voice switched to neural voice. Default fast voice."
                 except Exception as e:
                     result = f"Voice switch failed: {e}"
 
@@ -2247,7 +2247,7 @@ class JarvisLive:
                         {"description": description, "workspace_path": workspace}, speak=self.speak
                     )
                 )
-                result = r or "Claude Code task completed."
+                result = r or "Code engine task completed."
 
             elif name == "word_document":
                 from actions.docx_tools import word_document as _wd
@@ -2364,12 +2364,12 @@ class JarvisLive:
         )
 
 
-    # ── Morning briefing (text + Edge TTS) ─────────────────────────────────────
+    # ── Morning briefing (text + neural voice) ─────────────────────────────────────
 
     async def _send_startup_briefing(self) -> None:
         """
         Two-phase briefing:
-          Phase 1 — immediate greeting via Edge TTS
+          Phase 1 — immediate greeting via neural voice
           Phase 2 — system stats shown on screen + spoken
         """
         await asyncio.sleep(0.3)
@@ -2611,7 +2611,7 @@ class JarvisLive:
                 await asyncio.sleep(0.5)
 
 
-    # ── main loop (text chat + Edge TTS) ────────────────────────────────────────
+    # ── main loop (text chat + neural voice) ────────────────────────────────────
 
     async def run(self):
         self._loop = asyncio.get_event_loop()

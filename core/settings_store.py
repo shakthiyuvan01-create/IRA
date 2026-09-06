@@ -68,7 +68,7 @@ def save_providers(updates: dict) -> dict:
     if gem_key:
         cfg["gemini_api_key"] = gem_key
         os.environ["GEMINI_API_KEY"] = gem_key
-        saved.append("Gemini API key")
+        saved.append("AI API key")
 
     gem_model = (updates.get("gemini_model") or "").strip()
     if gem_model:

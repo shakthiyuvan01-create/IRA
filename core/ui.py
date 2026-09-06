@@ -3460,7 +3460,7 @@ _BTN_ICON = {
     "Website": "layout",
     "Task Manager": "list", "Expenses": "wallet", "Reminder": "bell",
     "Scheduler": "clock", "Briefing": "sunrise", "Meeting": "users",
-    "Code Helper": "code", "Dev Agent": "bot", "Claude Code": "terminal",
+    "Code Helper": "code", "Dev Agent": "bot", "Code Engine": "terminal",
     "Flights": "plane", "Games": "music", "Analyze": "pie",
     "Smart Home": "home", "Self Check": "check", "Provider Status": "server",
 }
@@ -3670,7 +3670,7 @@ class MainWindow(QMainWindow):
         cards = QHBoxLayout(); cards.setSpacing(8)
         self._header_cards = {}
         for icon, label, value in [
-            ("sparkles", "AI MODEL", "Gemini 2.5 Flash"),
+            ("sparkles", "AI MODEL", "IRA Brain"),
             ("zap",      "LATENCY",  "12ms"),
             ("database", "CONTEXT",  "2.1GB"),
             ("waveform", "VOICE",    "Iris"),
@@ -3992,7 +3992,7 @@ class MainWindow(QMainWindow):
         self._add_btn_group(btn_lay, "DEV", C.PRI, [
             ("Code Helper", "Help me with code"),
             ("Dev Agent", "Build a project"),
-            ("Claude Code", "Use Claude Code"),
+            ("Code Engine", "Use Code Engine"),
         ])
 
         self._add_btn_group(btn_lay, "MORE", C.TEXT_MED, [

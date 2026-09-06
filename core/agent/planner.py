@@ -267,7 +267,7 @@ def _fallback_plan(goal: str) -> dict:
             {
               "step": 1,
               "tool": "claude_code",
-              "description": f"Create the requested website with Claude Code: {goal}",
+              "description": f"Create the requested website with code engine: {goal}",
               "parameters": {"description": goal},
               "critical": True,
             }
