@@ -50,8 +50,29 @@ class GeminiProvider(Provider):
 
     def vision(self, prompt: str, image_b64: str, mime: str = "image/jpeg",
                max_tokens: int = 900) -> str:
-        """Analyze an image using Gemini vision capabilities."""
+        """Analyze an image using Gemini vision capabilities.
+
+        Accepts either the documented form vision(prompt, image_b64, mime)
+        or a content-parts list as the first arg, e.g.
+        vision([{"mime_type": ..., "data": ...}], prompt_text). A wrong call
+        shape is normalised here instead of producing a silent 400 upstream.
+        """
         key = os.getenv("GEMINI_API_KEY", "")
+        # Normalise: tolerate a parts-list passed as the first argument.
+        if isinstance(prompt, (list, tuple)):
+            parts_list = list(prompt)
+            prompt_text = image_b64 if isinstance(image_b64, str) else ""
+            image_b64 = ""
+            mime_type = mime
+            for p in parts_list:
+                if isinstance(p, dict) and p.get("data"):
+                    image_b64 = p["data"]
+                    mime_type = p.get("mime_type") or mime
+                    break
+            prompt = prompt_text or "Describe this image in detail."
+            mime = mime_type
+        if not image_b64:
+            raise ValueError("vision() called without image data")
         url = ("https://generativelanguage.googleapis.com/v1beta/models/"
                + self.default_model + ":generateContent?key=" + key)
         r = requests.post(url, json={"contents": [{"parts": [

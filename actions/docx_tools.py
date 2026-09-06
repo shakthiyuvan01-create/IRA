@@ -1,5 +1,5 @@
 """
-docx_tools.py - Brahma AI Word / DOCX support
+docx_tools.py - IRA Word / DOCX support
 
 Provides dedicated creation, editing, extraction, summarization, and opening
 workflows for editable Word documents.
@@ -15,7 +15,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-PROJECT_NAME = "Brahma AI - Lite"
+PROJECT_NAME = "IRA"
 DEFAULT_OUTPUT_DIR = Path.home() / "Downloads"
 
 
@@ -367,7 +367,7 @@ def word_document(parameters: dict, player=None, speak=None) -> str:
     action = (params.get("action") or "create").lower().strip()
     file_path_str = (params.get("file_path") or "").strip()
     output_path_str = (params.get("output_path") or "").strip() or None
-    title = (params.get("title") or params.get("subject") or "Brahma AI Document").strip()
+    title = (params.get("title") or params.get("subject") or "IRA Document").strip()
     doc_type = (params.get("doc_type") or params.get("template") or "").lower().strip()
 
     source_path = Path(file_path_str) if file_path_str else None

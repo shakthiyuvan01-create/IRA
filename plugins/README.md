@@ -1,4 +1,4 @@
-# IRA Plugin System (ported from Brahma AI)
+# IRA Plugin System (ported from IRA)
 
 Plugins live in this directory. Drop a `.py` file here and IRA loads it at boot.
 

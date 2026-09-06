@@ -1,5 +1,5 @@
 """
-office_builder.py - Brahma AI office document generation
+office_builder.py - IRA office document generation
 
 Creates PowerPoint presentations and Excel workbooks from structured inputs.
 """
@@ -20,7 +20,7 @@ from actions.ppt_template_workflow import (
 )
 
 
-PROJECT_NAME = "Brahma AI - Lite"
+PROJECT_NAME = "IRA"
 DEFAULT_OUTPUT_DIR = Path.home() / "Desktop" / "BrahmaAI"
 
 

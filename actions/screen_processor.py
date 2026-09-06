@@ -455,8 +455,19 @@ def warmup_session(player=None) -> None:
 # IRA's normal TTS voice and remember. This is what makes IRA behave like the
 # Iron-Man JARVIS: it looks, understands, describes, and remembers what it saw.
 def vision_text(angle: str = "screen", question: str = "What do you see? Be brief.",
-               player=None) -> str:
+               player=None, speak=None) -> str:
     """Capture `angle` ('screen'|'camera'), analyze it, speak + return the answer."""
+    # Prefer a real `speak` callable (IRA's TTS); fall back to player.speak.
+    _speak = speak or (getattr(player, "speak", None) if player is not None else None)
+
+    def _try_speak(msg):
+        if not _speak:
+            return
+        try:
+            _speak(msg)
+        except Exception as e:
+            print(f"[Vision] ⚠️  speak failed: {e}")
+
     try:
         if angle == "camera":
             image_bytes, mime_type = _capture_camera()
@@ -465,11 +476,7 @@ def vision_text(angle: str = "screen", question: str = "What do you see? Be brie
     except Exception as e:
         msg = f"I couldn't capture the {angle}: {e}"
         print(f"[Vision] ❌ {msg}")
-        if player is not None:
-            try:
-                player.speak(msg)
-            except Exception:
-                pass
+        _try_speak(msg)
         return msg
 
     b64 = base64.b64encode(image_bytes).decode("ascii")
@@ -478,11 +485,7 @@ def vision_text(angle: str = "screen", question: str = "What do you see? Be brie
         answer = _vision_via_gemini(b64, mime_type, question)
 
     if answer:
-        if player is not None:
-            try:
-                player.speak(answer)
-            except Exception as e:
-                print(f"[Vision] ⚠️  speak failed: {e}")
+        _try_speak(answer)
         print(f"[Vision] 💬 {answer}")
     return answer or "I looked but couldn't interpret what I saw."
 

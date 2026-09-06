@@ -400,7 +400,7 @@ class DiscordBotService:
         gemini_key = (keys.get("gemini_api_key") or "").strip()
         openrouter_key = (keys.get("openrouter_api_key") or "").strip()
         system_prompt = (
-            "You are Brahma AI Lite inside Discord. "
+            "You are IRA Lite inside Discord. "
             "Be concise, accurate, and helpful. "
             "Keep replies friendly and under 250 words unless the user asks for detail."
         )
