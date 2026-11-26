@@ -1,0 +1,34 @@
+diff --git a/Application/core/ui.py b/Application/core/ui.py
+index 64fe948..b5f1731 100644
+--- a/Application/core/ui.py
++++ b/Application/core/ui.py
+@@ -4061,9 +4061,16 @@ class MainWindow(QMainWindow):
+             row_w = QWidget(); row_w.setLayout(h)
+             return row_w
+ 
+-        lay.addWidget(_sec("ACTIVITY LOG", "list"))
+         self._log = LogWidget()
+-        lay.addWidget(self._log, stretch=1)
++        try:   # ACTIVITY LOG | SELF IMPROVE tabs (core/self_improve/panel.py)
++            from core.self_improve.panel import build_log_tabs
++            _tabs, _stack, self._self_improve = build_log_tabs(self._log)
++            lay.addWidget(_tabs)
++            lay.addWidget(_stack, stretch=1)
++        except Exception as e:
++            print(f"[UI] Self Improve panel unavailable: {e}")
++            lay.addWidget(_sec("ACTIVITY LOG", "list"))
++            lay.addWidget(self._log, stretch=1)
+ 
+         sep = QFrame()
+         sep.setFrameShape(QFrame.Shape.HLine)
+@@ -4439,6 +4446,10 @@ class MainWindow(QMainWindow):
+         txt = self._input.text().strip()
+         if not txt: return
+         self._input.clear()
++        _si = getattr(self, "_self_improve", None)
++        if _si is not None and _si.isVisible():   # Self Improve tab is open
++            _si.handle(txt)
++            return
+         self._log.append_log(f"You: {txt}")
+         if self.on_text_command:
+             self._run_text(txt)
