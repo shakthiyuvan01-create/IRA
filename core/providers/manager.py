@@ -163,7 +163,7 @@ class ProviderManager:
     # ── Internal fast path ─────────────────────────────────────────────────
 
     def _fast_call(self, method: str, **kwargs) -> str:
-        """Try providers sequentially — OmniRoute → Gemini → Ollama fallback chain."""
+        """Try providers sequentially — primary → secondary → fallback chain."""
         self.last_errors = []
         provider = kwargs.pop("provider", None)
 

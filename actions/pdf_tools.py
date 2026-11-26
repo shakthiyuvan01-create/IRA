@@ -1,5 +1,5 @@
 """
-pdf_tools.py - Brahma AI PDF support
+pdf_tools.py - IRA PDF support
 
 Creates editable-in-spirit PDF documents from structured content and converts
 existing DOCX / text files into readable PDFs without relying on LibreOffice.
@@ -15,7 +15,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-PROJECT_NAME = "Brahma AI - Lite"
+PROJECT_NAME = "IRA"
 DEFAULT_OUTPUT_DIR = Path.home() / "Downloads"
 
 

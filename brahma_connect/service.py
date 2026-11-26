@@ -116,7 +116,7 @@ class BrahmaConnectService:
         finally:
             loop.close()
 
-    async def disconnect_device(self, target: str, *, reason: str = "Disconnected by Brahma") -> dict[str, Any]:
+    async def disconnect_device(self, target: str, *, reason: str = "Disconnected by IRA") -> dict[str, Any]:
         return await self.gateway.disconnect_device(target, reason=reason)
 
     async def reconnect_device(self, target: str) -> dict[str, Any]:

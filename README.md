@@ -271,3 +271,13 @@ Licensed under **[Creative Commons BY-NC 4.0](https://creativecommons.org/licens
 **Built with ⚡ by Yuvan** — *a real-time voice AI that can hear, see, understand, and control your computer.*
 
 </div>
+
+## Connected apps (Composio)
+
+IRA reaches every app connected in your Composio account — Gmail, Google Calendar, Drive, Docs, Sheets, GitHub, Reddit and anything else you add — through one `composio` tool.
+
+1. Put your Composio project key in `Application/.env` as `COMPOSIO_API_KEY` (see `Application/.env.example`).
+2. Leave `COMPOSIO_TOOLKITS=all` to expose every connected app, or list slugs (`gmail,googledrive`) to narrow it.
+3. Connect apps either in the Composio dashboard or by asking IRA, for example "connect Google Drive". IRA opens the sign-in link and picks the new account up within a minute, no restart needed.
+
+Ask IRA "which apps are connected?" to see what it can use. IRA always finds an action with a search before running it, and asks before sending, deleting or publishing anything.

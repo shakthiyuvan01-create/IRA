@@ -203,7 +203,7 @@ class BrahmaGateway:
             "permissions": list(record.permissions),
         }
 
-    async def disconnect_device(self, device_or_target: str, *, reason: str = "Disconnected by Brahma") -> dict[str, Any]:
+    async def disconnect_device(self, device_or_target: str, *, reason: str = "Disconnected by IRA") -> dict[str, Any]:
         query = str(device_or_target or "").strip()
         matches = self.device_manager.resolve(query)
         record = None
@@ -384,7 +384,7 @@ class BrahmaGateway:
         async def info():
             return {
                 "ok": True,
-                "service": "Brahma Connect",
+                "service": "IRA Connect",
                 "host": self.config.host,
                 "port": self.config.port,
                 "advertise": self.config.advertise,
@@ -476,7 +476,7 @@ class BrahmaGateway:
                                 ProtocolTypes.PAIR_REQUEST,
                                 {
                                     "pending_id": pending_id,
-                                    "message": "Pairing request received. Awaiting user approval in Brahma.",
+                                    "message": "Pairing request received. Awaiting user approval in IRA.",
                                     "device_name": self._pending_requests[pending_id]["device_name"],
                                     "platform": self._pending_requests[pending_id]["platform"],
                                 },

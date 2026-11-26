@@ -6,6 +6,7 @@ import sys
 import traceback
 import concurrent.futures
 from datetime import datetime
+import time
 from pathlib import Path
 
 # ── Make the project root importable (main.py now lives in core/) ──────────
@@ -55,7 +56,7 @@ sys.stdout = _safe_stream(sys.stdout)
 sys.stderr = _safe_stream(sys.stderr)
 # ─────────────────────────────────────────────────────────────────────────────
 
-import sounddevice as sd
+import sounddevice as _sd  # used by _get_audio_device only
 from google import genai
 from google.genai import types
 from core.ui import JarvisUI
@@ -83,8 +84,6 @@ from actions.youtube_video     import youtube_video
 from actions.desktop           import desktop_control
 from actions.browser_control   import browser_control
 from actions.file_controller   import file_controller
-from actions.code_helper       import code_helper
-from actions.dev_agent         import dev_agent
 from actions.web_search        import web_search as web_search_action
 from actions.computer_control  import computer_control
 from actions.game_updater      import game_updater
@@ -111,8 +110,10 @@ from core.data.database import init_db
 
 # ── Self-improvement system ──────────────────────────────────────────────
 from core.services.background_tasks import BackgroundTaskManager
+from actions.proactive import ProactiveEngine
+from actions.background_monitor import check_all as monitor_check_all, list_monitors
 
-# ── Light Brahma AI imports (used at module init) ────────────────────────
+# ── Light IRA imports (used at module init) ────────────────────────
 from core.agent.task_queue import get_queue as get_task_queue, TaskPriority
 from actions.daily_briefing      import compile_daily_briefing
 
@@ -126,11 +127,27 @@ def get_base_dir():
 BASE_DIR        = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "core" / "config" / "api_keys.json"
 PROMPT_PATH     = BASE_DIR / "core" / "prompt.txt"
-LIVE_MODEL          = "models/gemini-2.5-flash-native-audio-latest"
-CHANNELS            = 1
-SEND_SAMPLE_RATE    = 16000
-RECEIVE_SAMPLE_RATE = 24000
-CHUNK_SIZE          = 1024
+CHUNK_SIZE          = 1024  # kept for backward compat only
+
+class _SessionGuard:
+    """Async context manager that wraps a google-genai Live session context
+    manager whose __aenter__ was already awaited manually (so we can apply an
+    asyncio.wait_for timeout to the connect handshake). On exit it calls the
+    underlying __aexit__ so the session closes cleanly."""
+
+    def __init__(self, session_cm):
+        self._cm = session_cm
+
+    async def __aenter__(self):
+        return self  # session already entered; this guard just manages exit
+
+    async def __aexit__(self, exc_type, exc, tb):
+        try:
+            await self._cm.__aexit__(exc_type, exc, tb)
+        except Exception:
+            pass
+        return False
+
 
 def _get_api_key() -> str:
     with open(API_CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -640,38 +657,6 @@ TOOL_DECLARATIONS = [
         }
     },
     {
-        "name": "code_helper",
-        "description": "Writes, edits, explains, runs, or builds code files.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "action":      {"type": "STRING", "description": "write | edit | explain | run | build | auto (default: auto)"},
-                "description": {"type": "STRING", "description": "What the code should do or what change to make"},
-                "language":    {"type": "STRING", "description": "Programming language (default: python)"},
-                "output_path": {"type": "STRING", "description": "Where to save the file"},
-                "file_path":   {"type": "STRING", "description": "Path to existing file for edit/explain/run/build"},
-                "code":        {"type": "STRING", "description": "Raw code string for explain"},
-                "args":        {"type": "STRING", "description": "CLI arguments for run/build"},
-                "timeout":     {"type": "INTEGER", "description": "Execution timeout in seconds (default: 30)"},
-            },
-            "required": ["action"]
-        }
-    },
-    {
-        "name": "dev_agent",
-        "description": "Builds complete multi-file projects from scratch: plans, writes files, installs deps, opens VSCode, runs and fixes errors.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "description":  {"type": "STRING", "description": "What the project should do"},
-                "language":     {"type": "STRING", "description": "Programming language (default: python)"},
-                "project_name": {"type": "STRING", "description": "Optional project folder name"},
-                "timeout":      {"type": "INTEGER", "description": "Run timeout in seconds (default: 30)"},
-            },
-            "required": ["description"]
-        }
-    },
-    {
         "name": "computer_control",
         "description": "Direct computer control: type, click, hotkeys, scroll, move mouse, screenshots, find elements on screen.",
         "parameters": {
@@ -988,22 +973,22 @@ TOOL_DECLARATIONS = [
     {
         "name": "set_voice",
         "description": (
-            "Switch IRA's voice between Google Gemini (default, low latency) and ElevenLabs (premium quality). "
-            "When switching to ElevenLabs, the API key must be configured in config/api_keys.json. "
-            "Default is 'gemini'. Use 'elevenlabs' for higher quality voice."
+            "Switch IRA's voice between built-in neural voice (default, fast) and premium voice (high quality). "
+            "Premium voice requires an API key configured in config/api_keys.json. "
+            "Default is 'neural'. Use 'premium' for higher quality voice."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "mode": {
                     "type": "STRING",
-                    "description": "'gemini' for Google's built-in voice (Charon) | 'elevenlabs' for ElevenLabs premium voice"
+                    "description": "'neural' for built-in fast voice | 'premium' for high quality voice"
                 },
             },
             "required": ["mode"]
         }
     },
-    # ── Brahma AI Feature Integrations ─────────────────────────────────────
+    # ── IRA Feature Integrations ─────────────────────────────────────
     {
         "name": "smart_home",
         "description": (
@@ -1057,10 +1042,10 @@ TOOL_DECLARATIONS = [
     {
         "name": "claude_code",
         "description": (
-            "Bridges to Claude Code CLI for complex development tasks. "
+            "IRA's code engine for complex development tasks. "
             "Use for: building full websites, coding projects, code editing, "
             "app development, running developer workflows, or any complex "
-            "software engineering task that needs the full Claude Code environment."
+            "software engineering task that needs the full code engine."
         ),
         "parameters": {
             "type": "OBJECT",
@@ -1263,8 +1248,10 @@ class JarvisLive:
         self._briefing_sent = False          # morning briefing fires once per process
         self._sys_monitor   = SystemMonitor()  # persistent cooldown state
         self._bg_tasks      = BackgroundTaskManager(jarvis=self, ui=self.ui)
+        self._proactive     = ProactiveEngine()  # proactive check-in engine
+        self._last_user_speech = time.monotonic()  # for proactive silence gate
 
-        # ── New Brahma AI services (lazy — initialised on first use) ──
+        # ── New IRA services (lazy — initialised on first use) ──
         self._smart_home       = None
         self._workspace_store  = None
         self._agent_executor   = None
@@ -1290,47 +1277,50 @@ class JarvisLive:
         return url, key, f"{url}/auto-login?key={key}", manual
 
     def _on_text_command(self, text: str):
-        if not self._loop or not self.session:
+        """Text input from the UI chat box — dispatches to asyncio loop in runner thread."""
+        if not text or not text.strip():
             return
-        asyncio.run_coroutine_threadsafe(
-            self.session.send_client_content(
-                turns={"parts": [{"text": text}]},
-                turn_complete=True
-            ),
-            self._loop
-        )
+        text = text.strip()
+        print(f"[IRA] User: {text}")
+        self.ui.write_log(f"You: {text}")
+        append_chat("Yuvan", text)
+        try:
+            from core.memory.session_search import index_message
+            index_message(datetime.now().isoformat(), "user", text)
+        except Exception:
+            pass
+
+        # Schedule _process_text_chat on the asyncio event loop running in the runner thread
+        loop = getattr(self, "_loop", None)
+        if loop and self._loop:
+            asyncio.run_coroutine_threadsafe(
+                self._process_text_chat(text),
+                self._loop
+            )
+        else:
+            # Fallback: schedule via Qt's event loop
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: asyncio.create_task(self._process_text_chat(text)))
 
     def _on_screen_captured(self, image_bytes: bytes, mime_type: str):
-        """
-        Called by the 'See Screen' button AFTER the UI has hidden IRA's own
-        window and captured the screen. Sends the image through IRA's existing
-        Gemini Live session (instead of creating a separate vision session
-        that causes audio conflicts and crashes). Fixes the restart-on-second-use bug.
-
-        IMPORTANT: The prompt tells Gemini NOT to call screen_process tool since
-        the image data is already included inline in this message.
-        """
-        if not self._loop or not self.session:
-            print("[IRA] No session — dropping screen capture")
-            return
+        """Screen capture — analyzes via vision provider."""
         try:
             import base64
             b64 = base64.b64encode(image_bytes).decode("ascii")
-            asyncio.run_coroutine_threadsafe(
-                self.session.send_client_content(
-                    turns={
-                        "parts": [
-                            {"inline_data": {"mime_type": mime_type, "data": b64}},
-                            {"text": "A screenshot of my screen was just sent attached to this message. Describe what you see briefly. Do NOT call the screen_process or any other tool — the image data is already here in the message with you."},
-                        ]
-                    },
-                    turn_complete=True,
-                ),
-                self._loop,
+            from core.providers.gemini import GeminiProvider
+            provider = GeminiProvider()
+            answer = provider.vision(
+                "Describe what you see in this screen capture briefly.",
+                b64,
+                mime_type,
             )
-            self.ui.write_log(f"SYS: Screen sent to main session ({len(image_bytes):,} bytes)")
+            if answer:
+                self.speak(answer)
+                self.ui.write_log(f"IRA: {answer}")
+                append_chat("IRA", answer)
+            self.ui.write_log(f"SYS: Screen captured ({len(image_bytes):,} bytes)")
         except Exception as e:
-            print(f"[IRA] Screen analyze error: {e}")
+            print(f"[IRA] Screen capture error: {e}")
 
     def set_speaking(self, value: bool):
         with self._speaking_lock:
@@ -1357,10 +1347,15 @@ class JarvisLive:
             print(f"[JARVIS] ⚠️  _log_seen failed: {e}")
 
     def speak(self, text: str):
+        """Speak text via neural voice through your computer's speaker.
+        
+        Falls back to premium voice if tts_mode is set to 'premium' and API key exists.
+        Premium voice mode requires an API key in config/api_keys.json.
+        """
         if not text or not text.strip():
             return
 
-        # Check if ElevenLabs mode is active
+        # Check if premium voice mode is active
         try:
             cfg_path = BASE_DIR / "core" / "persona" / "persona_config.json"
             if cfg_path.exists():
@@ -1372,19 +1367,110 @@ class JarvisLive:
         except Exception:
             pass
 
-        # Default: send to Gemini Live API
-        if not self._loop or not self.session:
+        # Default: neural voice — plays on your selected output device
+        self._speak_edge_tts(text)
+
+    def _play_media_on_device(self, path: str) -> None:
+        """Decode and play an audio file (MP3/WAV/OGG) on the user-selected
+        output device, falling back to the system default when no device is
+        configured or the device can't be opened.
+
+        Uses PyAV (av) to decode to raw PCM and sounddevice to play, so the
+        device actually honours the value saved in the Audio tab. Previously we
+        used winsound, which *always* routes to the Windows default device and
+        ignores the selection — the cause of 'IRA audio not coming' when the
+        headphones aren't the OS default.
+        """
+        device_idx = self._get_audio_device("audio_output_device", default=None)
+        # Decode to PCM (int16) via PyAV.
+        try:
+            import av
+            import numpy as np
+            container = av.open(path)
+            try:
+                stream = next(s for s in container.streams if s.type == "audio")
+                sr = int(stream.codec_context.sample_rate)
+                ch = int(stream.codec_context.channels)
+                resampler = av.audio.resampler.AudioResampler(
+                    format="s16", layout="mono" if ch == 1 else "stereo",
+                    rate=sr,
+                )
+                frames = []
+                for packet in container.demux(stream):
+                    for frame in packet.decode():
+                        for fr in resampler.resample(frame):
+                            frames.append(fr.to_ndarray())
+            finally:
+                container.close()
+            if not frames:
+                raise RuntimeError("no audio frames decoded")
+            pcm = np.concatenate(frames, axis=1).T  # (samples, channels)
+            if pcm.dtype != np.int16:
+                pcm = pcm.astype(np.int16)
+            data = pcm
+            _sd.play(data, samplerate=sr, device=device_idx, blocking=True)
             return
-        asyncio.run_coroutine_threadsafe(
-            self.session.send_client_content(
-                turns={"parts": [{"text": text}]},
-                turn_complete=True
-            ),
-            self._loop
-        )
+        except Exception as e:
+            print(f"[Audio] device playback path failed ({e}); trying fallback")
+
+        # Fallback: winsound / Windows default device.
+        try:
+            import winsound
+            winsound.PlaySound(path, winsound.SND_FILENAME)
+        except Exception as e2:
+            print(f"[Audio] fallback playback failed: {e2}")
+
+    def _speak_edge_tts(self, text: str):
+        """Speak via neural voice — synthesizes to temp .mp3 then plays via OS."""
+        import subprocess, tempfile, os, threading, shutil
+
+        voice = "en-US-AndrewNeural"
+        rate = "+0%"
+        volume = "+0%"
+
+        def _talk():
+            try:
+                self.set_speaking(True)
+                self.ui.set_state("SPEAKING")
+                tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+                tmp.close()
+                out_path = tmp.name
+                # Synthesize via edge-tts CLI
+                r = subprocess.run(
+                    ["edge-tts",
+                     "--voice", voice,
+                     "--rate", rate,
+                     "--volume", volume,
+                     "--text", text,
+                     "--write-media", out_path],
+                    capture_output=True, text=True, timeout=30
+                )
+                if r.returncode != 0 or not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
+                    print(f"[EdgeTTS] synthesize failed: {r.stderr or r.stdout}")
+                    self.set_speaking(False)
+                    self.ui.set_state("LISTENING")
+                    return
+                # Play on the user-selected output device (not just Windows default).
+                self._play_media_on_device(out_path)
+            except subprocess.TimeoutExpired:
+                print("[EdgeTTS] synthesize timed out")
+            except Exception as e:
+                print(f"[EdgeTTS] error: {e}")
+            finally:
+                self.set_speaking(False)
+                self.ui.set_state("LISTENING")
+                try:
+                    os.unlink(out_path)
+                except Exception:
+                    pass
+
+        threading.Thread(target=_talk, daemon=True).start()
+
+    async def _edge_tts_worker(self, text: str, q: asyncio.Queue):
+        pass  # unused — _speak_edge_tts uses threading instead
 
     def _speak_elevenlabs(self, text: str):
-        """Speak text using ElevenLabs TTS, playing on the configured output device."""
+        """Speak text using premium voice, playing on the configured output device."""
         try:
             import requests
             from pathlib import Path
@@ -1403,7 +1489,7 @@ class JarvisLive:
                     api_key = _cfg.get("elevenlabs_api_key", "")
 
             if not api_key:
-                print("[ElevenLabs] No API key configured")
+                print("[Premium Voice] No API key configured")
                 return
 
             voice_id = "pNInz6obpgDQGcFmaJgB"  # Default voice (Nicole/Adam depending)
@@ -1437,90 +1523,162 @@ class JarvisLive:
             _sd.play(samples, decoded.sample_rate, device=output_device)
             _sd.wait()
         except ImportError:
-            print("[ElevenLabs] Missing dependency: pip install miniaudio")
+            print("[Premium Voice] Missing dependency: pip install miniaudio")
         except Exception as e:
-            print(f"[ElevenLabs] Error: {e}")
+            print(f"[Premium Voice] Error: {e}")
 
     def speak_error(self, tool_name: str, error: str):
         short = str(error)[:120]
         self.ui.write_log(f"ERR: {tool_name} — {short}")
         self.speak(f"Yuvan, {tool_name} encountered an error. {short}")
 
-    def interrupt(self):
-        """Interrupt IRA's current speech/response immediately."""
-        if not self._loop or not self.session:
-            return
-        self.set_speaking(False)
-        if self._turn_done_event:
-            self._turn_done_event.set()
-        # Signal play_audio to stop and drain the audio queue
-        self._stop_requested = True
+    # ── Text chat pipeline ─────────────────────────────────────────────────────────
+
+    async def _process_text_chat(self, text: str) -> None:
+        """
+        Core text chat handler: routes text input through the AI model,
+        speaks the response via neural voice, and logs to chat history.
+        """
+        import time as _time  # for monotonic timing
+        self._last_user_speech = _time.monotonic()
+
+        self.ui.set_state("THINKING")
+        self.ui.write_log("IRA: Thinking...")
+
         try:
-            while not self.audio_in_queue.empty():
+            # Build messages list for chat API
+            system_prompt = self._build_system_prompt()
+            messages = [{"role": "system", "content": system_prompt}]
+            # Append recent chat context
+            try:
+                recent = recent_chat_context()
+                if recent:
+                    messages.append({"role": "system", "content": recent})
+            except Exception:
+                pass
+            messages.append({"role": "user", "content": text})
+
+            # Use ProviderManager for chat (local router → Gemini → Ollama fallback)
+            from core.providers.manager import ProviderManager
+            pm = ProviderManager()
+
+            def _call():
+                return pm.chat(
+                    messages=messages,
+                    max_tokens=2000,
+                    temperature=0.4,
+                )
+
+            response_text = await asyncio.to_thread(_call)
+
+            if response_text:
+                self.ui.set_state("SPEAKING")
+                self.ui.write_log(f"IRA: {response_text}")
+                append_chat("IRA", response_text)
                 try:
-                    self.audio_in_queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    break
-        except Exception:
-            pass
-        try:
-            asyncio.run_coroutine_threadsafe(
-                self.session.send_client_content(
-                    turns={"parts": [{"text": "[INTERRUPT] Stop speaking now and wait silently."}]},
-                    turn_complete=True,
-                ),
-                self._loop,
-            )
-            self.ui.write_log("SYS: Interrupted")
+                    from core.memory.session_search import index_message
+                    index_message(datetime.now().isoformat(), "assistant", response_text)
+                except Exception:
+                    pass
+                if self._dashboard:
+                    try:
+                        asyncio.create_task(self._dashboard.broadcast({
+                            "type": "log", "speaker": "jarvis",
+                            "text": response_text,
+                            "ts": datetime.now().isoformat(),
+                        }))
+                    except Exception:
+                        pass
+                # Speak response via neural voice
+                self.speak(response_text)
+                self.ui.set_state("LISTENING")
+            else:
+                self.ui.write_log("IRA: (no response)")
+                self.ui.set_state("LISTENING")
+
         except Exception as e:
-            print(f"[IRA] Interrupt error: {e}")
+            print(f"[IRA] Chat error: {e}")
+            traceback.print_exc()
+            self.speak_error("text chat", str(e))
+            self.ui.set_state("LISTENING")
+
+    def _build_system_prompt(self) -> str:
+        """Build system prompt from JARVIS.md + memory + session context."""
+        try:
+            return _load_system_prompt()
+        except Exception:
+            return "You are IRA, a helpful AI assistant."
+
+    def interrupt(self):
+        """Interrupt IRA's current speech/response immediately.
+        
+        With text-based chat + neural voice, this just clears speaking state.
+        The voice worker will finish naturally on next iteration.
+        """
+        self.set_speaking(False)
+        self.ui.set_state("LISTENING")
+        self.ui.write_log("SYS: Interrupted")
 
     def _on_live_screen_captured(self, image_bytes: bytes, mime_type: str):
-        """Handle a live screen capture — sends to main Gemini session."""
-        if not self._loop or not self.session:
-            print("[IRA] No session — dropping live screen capture")
-            return
+        """Handle a live screen capture — uses vision provider."""
         try:
             import base64
             b64 = base64.b64encode(image_bytes).decode("ascii")
-            asyncio.run_coroutine_threadsafe(
-                self.session.send_client_content(
-                    turns={
-                        "parts": [
-                            {"inline_data": {"mime_type": mime_type, "data": b64}},
-                            {"text": "Look at this screen capture. Analyze what you see — it could be a math problem, an image/picture, a diagram, text, or anything else. Think step by step and explain your reasoning logically. If it's a math or academic question, solve it step-by-step. If it's an image, describe it. If it's a logical puzzle, work through it. Be thorough but concise. Do NOT call any tools — the image is already here with you."},
-                        ]
-                    },
-                    turn_complete=True,
-                ),
-                self._loop,
+            from core.providers.gemini import GeminiProvider
+            provider = GeminiProvider()
+            answer = provider.vision(
+                "Describe what you see in this screen capture briefly.",
+                b64,
+                mime_type,
             )
-            self.ui.write_log(f"SYS: Live screen sent ({len(image_bytes):,} bytes)")
+            if answer:
+                self.speak(answer)
+                self.ui.write_log(f"IRA: {answer}")
+                append_chat("IRA", answer)
+            self.ui.write_log(f"SYS: Screen captured ({len(image_bytes):,} bytes)")
         except Exception as e:
             print(f"[IRA] Live screen error: {e}")
 
     def _get_audio_device(self, config_key: str = "audio_output_device", default=None):
-        """Read audio device index from persona config, return None for system default."""
+        """Read audio device from persona config.
+
+        Accepts an integer index OR a substring name (resolved dynamically,
+        because Bluetooth device indices shift on every reconnect). Returns
+        None to use the system default. For output keys only output-capable
+        devices are considered, and vice-versa for input keys.
+        """
         try:
             cfg_path = BASE_DIR / "core" / "persona" / "persona_config.json"
             if cfg_path.exists():
                 import json as _json
                 _cfg = _json.loads(cfg_path.read_text(encoding="utf-8"))
                 device = _cfg.get(config_key)
-                if device is not None:
-                    if isinstance(device, int):
-                        return device
-                    if isinstance(device, str) and device.strip():
-                        # String device name — resolve to index
-                        device_str = device.strip()
-                        try:
-                            devices = sd.query_devices()
-                            for i, d in enumerate(devices):
-                                if device_str.lower() in d["name"].lower():
-                                    return i
-                            print(f"[Audio] Device '{device_str}' not found — using default")
-                        except Exception:
-                            pass
+                if device is None:
+                    return default
+                if isinstance(device, int):
+                    return device
+                device_str = str(device).strip()
+                if not device_str:
+                    return default
+                try:
+                    devices = _sd.query_devices()
+                    is_output = "output" in config_key.lower()
+                    is_input = "input" in config_key.lower()
+                    # Try each friendly keyword so "Headset"/"Rockerz"/"Headphones" all work.
+                    for kw in (device_str.lower(), "rockerz", "headset", "headphones"):
+                        if not kw:
+                            continue
+                        for i, d in enumerate(devices):
+                            if kw not in d["name"].lower():
+                                continue
+                            if is_output and d["max_output_channels"] <= 0:
+                                continue
+                            if is_input and d["max_input_channels"] <= 0:
+                                continue
+                            return i
+                    print(f"[Audio] Device '{device_str}' not found — using default")
+                except Exception:
+                    pass
         except Exception:
             pass
         return default
@@ -1751,7 +1909,7 @@ class JarvisLive:
                 ang = (args.get("angle") or "screen").lower().strip()
                 try:
                     from actions.screen_processor import vision_text
-                    captured = vision_text(angle=ang, question=q_text, player=self.ui)
+                    captured = vision_text(angle=ang, question=q_text, speak=self.speak)
                     # Remember what IRA saw (JARVIS memory).
                     try:
                         self._log_seen(ang, q_text, captured)
@@ -1803,14 +1961,6 @@ class JarvisLive:
 
             elif name == "desktop_control":
                 r = await loop.run_in_executor(None, lambda: desktop_control(parameters=args, player=self.ui))
-                result = r or "Done."
-
-            elif name == "code_helper":
-                r = await loop.run_in_executor(None, lambda: code_helper(parameters=args, player=self.ui, speak=self.speak))
-                result = r or "Done."
-
-            elif name == "dev_agent":
-                r = await loop.run_in_executor(None, lambda: dev_agent(parameters=args, player=self.ui, speak=self.speak))
                 result = r or "Done."
 
             elif name == "web_search":
@@ -1914,7 +2064,7 @@ class JarvisLive:
 
             elif name == "audio_list_devices":
                 try:
-                    devices = sd.query_devices()
+                    devices = _sd.query_devices()
                     lines = ["Available Audio Devices:"]
                     for i, d in enumerate(devices):
                         direction = []
@@ -1925,13 +2075,13 @@ class JarvisLive:
                         default = ""
                         if d.get("default_samplerate"):
                             try:
-                                default_info = sd.query_devices(kind="output")
+                                default_info = _sd.query_devices(kind="output")
                                 if default_info and default_info["name"] == d["name"]:
                                     default = " ⬅️ (default output)"
                             except Exception:
                                 pass
                             try:
-                                default_info = sd.query_devices(kind="input")
+                                default_info = _sd.query_devices(kind="input")
                                 if default_info and default_info["name"] == d["name"]:
                                     default = " ⬅️ (default input)"
                             except Exception:
@@ -1961,7 +2111,7 @@ class JarvisLive:
                         result = "device_name is required."
                     else:
                         # Find matching device
-                        devices = sd.query_devices()
+                        devices = _sd.query_devices()
                         found_idx = None
                         for i, d in enumerate(devices):
                             if dev_name.lower() in d["name"].lower():
@@ -2018,13 +2168,13 @@ class JarvisLive:
                         cfg_path.write_text(_json.dumps(_cfg, indent=2) + "\n", encoding="utf-8")
 
                         if mode == "elevenlabs":
-                            result = "Voice switched to ElevenLabs premium. Your next response will use ElevenLabs voice."
+                            result = "Voice switched to premium quality. Your next response will use premium voice."
                         else:
-                            result = "Voice switched to Google Gemini (Charon). Default low-latency voice."
+                            result = "Voice switched to neural voice. Default fast voice."
                 except Exception as e:
                     result = f"Voice switch failed: {e}"
 
-            # ── Brahma AI Feature Integrations ─────────────────────────────────────
+            # ── IRA Feature Integrations ─────────────────────────────────────
             elif name == "smart_home":
                 action = args.get("action", "list_devices")
                 try:
@@ -2097,7 +2247,7 @@ class JarvisLive:
                         {"description": description, "workspace_path": workspace}, speak=self.speak
                     )
                 )
-                result = r or "Claude Code task completed."
+                result = r or "Code engine task completed."
 
             elif name == "word_document":
                 from actions.docx_tools import word_document as _wd
@@ -2213,203 +2363,20 @@ class JarvisLive:
             response={"result": result}
         )
 
-    async def _send_realtime(self):
-        while True:
-            msg = await self.out_queue.get()
-            # `audio=` (not `media=`) is the current Live API field — `media_chunks`
-            # is deprecated and rejected by newer models (e.g. gemini-3.1-flash-live).
-            await self.session.send_realtime_input(audio=msg)
 
-    async def _listen_audio(self):
-        print("[JARVIS] 🎤 Mic started")
-        loop = asyncio.get_event_loop()
-
-        def callback(indata, frames, time_info, status):
-            with self._speaking_lock:
-                jarvis_speaking = self._is_speaking
-            if not jarvis_speaking and not self.ui.muted and not self._phone_active:
-                data = indata.tobytes()
-                loop.call_soon_threadsafe(
-                    self.out_queue.put_nowait,
-                    {"data": data, "mime_type": "audio/pcm"}
-                )
-
-        try:
-            input_device = self._get_audio_device("audio_input_device", default=None)
-            if input_device is not None:
-                print(f"[JARVIS] 🎤 Input device: {input_device}")
-
-            with sd.InputStream(
-                samplerate=SEND_SAMPLE_RATE,
-                channels=CHANNELS,
-                dtype="int16",
-                blocksize=CHUNK_SIZE,
-                callback=callback,
-                device=input_device,
-            ):
-                print("[JARVIS] 🎤 Mic stream open")
-                while True:
-                    await asyncio.sleep(0.1)
-        except Exception as e:
-            print(f"[JARVIS] ❌ Mic: {e}")
-            raise
-
-    async def _receive_audio(self):
-        print("[JARVIS] 👂 Recv started")
-        out_buf, in_buf = [], []
-
-        try:
-            while True:
-                async for response in self.session.receive():
-
-                    if response.data:
-                        if self._turn_done_event and self._turn_done_event.is_set():
-                            self._turn_done_event.clear()
-                        self.audio_in_queue.put_nowait(response.data)
-
-                    if response.server_content:
-                        sc = response.server_content
-
-                        if sc.output_transcription and sc.output_transcription.text:
-                            txt = _clean_transcript(sc.output_transcription.text)
-                            if txt:
-                                out_buf.append(txt)
-
-                        if sc.input_transcription and sc.input_transcription.text:
-                            txt = _clean_transcript(sc.input_transcription.text)
-                            if txt:
-                                in_buf.append(txt)
-
-                        if sc.turn_complete:
-                            if self._turn_done_event:
-                                self._turn_done_event.set()
-
-                            full_in = " ".join(in_buf).strip()
-                            if full_in:
-                                self.ui.write_log(f"You: {full_in}")
-                                append_chat("Yuvan", full_in)
-                                try:
-                                    from core.memory.session_search import index_message as index_msg
-                                    index_msg(datetime.now().isoformat(), "user", full_in)
-                                except Exception:
-                                    pass
-                                if self._dashboard:
-                                    asyncio.create_task(self._dashboard.broadcast({
-                                        "type": "log", "speaker": "user",
-                                        "text": full_in,
-                                        "ts": datetime.now().isoformat(),
-                                    }))
-                            in_buf = []
-
-                            full_out = " ".join(out_buf).strip()
-                            if full_out:
-                                self.ui.write_log(f"IRA: {full_out}")
-                                append_chat("IRA", full_out)
-                                try:
-                                    from core.memory.session_search import index_message as index_msg
-                                    index_msg(datetime.now().isoformat(), "assistant", full_out)
-                                except Exception:
-                                    pass
-                                if self._dashboard:
-                                    asyncio.create_task(self._dashboard.broadcast({
-                                        "type": "log", "speaker": "jarvis",
-                                        "text": full_out,
-                                        "ts": datetime.now().isoformat(),
-                                    }))
-                            out_buf = []
-
-                    if response.tool_call:
-                        fn_responses = []
-                        for fc in response.tool_call.function_calls:
-                            print(f"[JARVIS] 📞 {fc.name}")
-                            fr = await self._execute_tool(fc)
-                            fn_responses.append(fr)
-                        await self.session.send_tool_response(
-                            function_responses=fn_responses
-                        )
-        except Exception as e:
-            print(f"[JARVIS] ❌ Recv: {e}")
-            traceback.print_exc()
-            raise
-
-    async def _play_audio(self):
-        print("[JARVIS] 🔊 Play started")
-
-        # Use configured audio output device if specified
-        output_device = self._get_audio_device("audio_output_device", default=None)
-        if output_device is not None:
-            print(f"[JARVIS] 🔊 Output device: {output_device}")
-
-        stream = sd.RawOutputStream(
-            samplerate=RECEIVE_SAMPLE_RATE,
-            channels=CHANNELS,
-            dtype="int16",
-            blocksize=CHUNK_SIZE,
-            device=output_device,
-        )
-        stream.start()
-
-        try:
-            while True:
-                # Check if stop was requested — immediately abort playback
-                if self._stop_requested:
-                    self._stop_requested = False
-                    self.set_speaking(False)
-                    # Stop current audio instantly
-                    stream.stop()
-                    # Drain remaining chunks
-                    while not self.audio_in_queue.empty():
-                        try:
-                            self.audio_in_queue.get_nowait()
-                        except asyncio.QueueEmpty:
-                            break
-                    # Restart stream for next response
-                    stream.start()
-                    if self._turn_done_event:
-                        self._turn_done_event.clear()
-                    continue
-
-                try:
-                    chunk = await asyncio.wait_for(
-                        self.audio_in_queue.get(),
-                        timeout=0.1
-                    )
-                except asyncio.TimeoutError:
-                    if (
-                        self._turn_done_event
-                        and self._turn_done_event.is_set()
-                        and self.audio_in_queue.empty()
-                    ):
-                        self.set_speaking(False)
-                        self._turn_done_event.clear()
-                    continue
-                self.set_speaking(True)
-                await asyncio.to_thread(stream.write, chunk)
-        except Exception as e:
-            print(f"[JARVIS] ❌ Play: {e}")
-            raise
-        finally:
-            self.set_speaking(False)
-            stream.stop()
-            stream.close()
-
-    # ── Morning briefing ────────────────────────────────────────────────────────
+    # ── Morning briefing (text + neural voice) ─────────────────────────────────────
 
     async def _send_startup_briefing(self) -> None:
         """
-        Two-phase briefing for instant perceived response:
-          Phase 1 — immediate greeting (no tools, no fetch) → Jarvis speaks in <2s
-          Phase 2 — news fetched in background, injected after greeting finishes
+        Two-phase briefing:
+          Phase 1 — immediate greeting via neural voice
+          Phase 2 — system stats shown on screen + spoken
         """
         await asyncio.sleep(0.3)
-        if not self.session:
-            return
 
-        # ── memory ───────────────────────────────────────────────────────────
         memory   = load_memory()
         identity = memory.get("identity", {})
 
-        # Also try new MemoryStore for identity data
         try:
             from core.memory.memory_tool import get_memory_store
             _new_store = get_memory_store()
@@ -2429,30 +2396,21 @@ class JarvisLive:
 
         lang = _val("language")
         name = _val("name")
-
         from datetime import datetime
         time_str = datetime.now().strftime("%H:%M")
 
-        # ── Phase 1: instant greeting — zero data needed ──────────────────────
-        p1_lines = [
-            "[STARTUP_GREETING] Greet the user immediately. Keep it to 1-2 short sentences.",
-            f"Current time: {time_str}.",
-            "- Say hello and mention the time naturally.",
-            "- Say you are checking system status and will share it in a moment.",
-            "- Do NOT call any tools. Do NOT say [STARTUP_GREETING].",
-            "- Respond in "
-            + (f"language: {lang}." if lang else "the user's language (default: English)."),
-        ]
-        if name:
-            p1_lines.append(f"- Address the user as {name}.")
+        hour = datetime.now().hour
+        if hour < 12:
+            period = "Good morning"
+        elif hour < 17:
+            period = "Good afternoon"
+        else:
+            period = "Good evening"
 
-        await self.session.send_client_content(
-            turns={"parts": [{"text": '\n'.join(p1_lines)}]},
-            turn_complete=True,
-        )
-        self.ui.write_log("SYS: Briefing phase 1 (greeting) sent.")
+        greeting = f"{period}{f', {name}' if name else ''}. IRA is online. Give me a moment to check system status."
+        self.speak(greeting)
+        self.ui.write_log("SYS: Greeting spoken.")
 
-        # ── Phase 2: fetch system stats in background, deliver after greeting ───
         async def _guarded_system():
             try:
                 await self._briefing_system_phase(lang)
@@ -2462,23 +2420,13 @@ class JarvisLive:
         asyncio.create_task(_guarded_system())
 
     async def _briefing_system_phase(self, lang: str) -> None:
-        """
-        Gathers system stats: CPU, GPU, battery, Kotha Gudem temperature,
-        primary drive storage. Then injects a short summary into the Live session.
-        Waits enough time for the phase-1 greeting to finish playing first.
-        """
         import psutil
-        import time as _time
 
         fetch_start = asyncio.get_event_loop().time()
-
-        # Collect system data
         system_data = {}
 
-        # CPU
         system_data["cpu"] = psutil.cpu_percent(interval=0.5)
 
-        # GPU — try to get GPU load
         gpu_val = -1.0
         try:
             import subprocess as _sp
@@ -2489,13 +2437,9 @@ class JarvisLive:
             if result.returncode == 0:
                 gpu_val = float(result.stdout.strip())
         except Exception:
-            try:
-                gpu_val = _metrics.snapshot().get("gpu", -1.0)
-            except Exception:
-                gpu_val = -1.0
+            gpu_val = -1.0
         system_data["gpu"] = gpu_val
 
-        # Battery
         battery = psutil.sensors_battery()
         if battery:
             system_data["battery"] = battery.percent
@@ -2504,17 +2448,14 @@ class JarvisLive:
             system_data["battery"] = None
             system_data["battery_charging"] = None
 
-        # Primary drive storage (C:)
         try:
             disk = psutil.disk_usage("C:\\")
-            system_data["disk_total"] = disk.total / (1024**3)   # GB
+            system_data["disk_total"] = disk.total / (1024**3)
             system_data["disk_used"] = disk.used / (1024**3)
-            system_data["disk_free"] = disk.free / (1024**3)
             system_data["disk_percent"] = disk.percent
         except Exception:
             system_data["disk_total"] = system_data["disk_used"] = None
 
-        # Temperature for Kotha Gudem — use weather API
         weather_temp = None
         try:
             from actions.weather_report import weather_action
@@ -2524,114 +2465,136 @@ class JarvisLive:
             if weather_result:
                 weather_temp = weather_result
         except Exception as e:
-            print(f"[Briefing] Weather fetch: {e}")
+            print(f"[Briefing] Weather: {e}")
 
-        # Show data on screen
-        lines = []
-        lines.append(f"CPU: {system_data['cpu']:.0f}%")
-        if system_data["gpu"] >= 0:
-            lines.append(f"GPU: {system_data['gpu']:.0f}%")
-        else:
-            lines.append(f"GPU: N/A")
+        lines_list = []
+        lines_list.append(f"CPU: {system_data['cpu']:.0f}%")
+        lines_list.append(f"GPU: {system_data['gpu']:.0f}%" if system_data["gpu"] >= 0 else "GPU: N/A")
         if system_data["battery"] is not None:
             charge = "Charging" if system_data["battery_charging"] else "On Battery"
-            lines.append(f"Battery: {system_data['battery']:.0f}% ({charge})")
+            lines_list.append(f"Battery: {system_data['battery']:.0f}% ({charge})")
         else:
-            lines.append(f"Battery: N/A")
+            lines_list.append("Battery: N/A")
         if system_data["disk_total"] is not None:
-            lines.append(f"Storage (C:): {system_data['disk_used']:.1f}GB / {system_data['disk_total']:.0f}GB ({system_data['disk_percent']:.0f}% used)")
+            lines_list.append(f"Storage (C:): {system_data['disk_used']:.1f}GB / {system_data['disk_total']:.0f}GB ({system_data['disk_percent']:.0f}% used)")
         if weather_temp:
-            lines.append(f"Kotha Gudem: {weather_temp}")
-        full_report = "\n".join(lines)
-        self.ui.show_content("SYSTEM STATUS", full_report)
+            lines_list.append(f"Kotha Gudem: {weather_temp}")
 
-        # Ensure the phase-1 greeting (≈ 3 s of speech) has finished before we speak again
+        self.ui.show_content("SYSTEM STATUS", "\n".join(lines_list))
+
         elapsed = asyncio.get_event_loop().time() - fetch_start
         wait_more = max(0.0, 3.5 - elapsed)
         if wait_more > 0:
             await asyncio.sleep(wait_more)
 
-        if not self.session:
-            return
-
-        # Build the spoken briefing prompt
-        p2_lines = [
-            "[BRIEFING_SYSTEM] System status is displayed on screen.",
-            "Data:",
-            f"CPU: {system_data['cpu']:.0f}% used.",
-            "GPU: {}% used.".format('N/A' if system_data['gpu'] < 0 else f"{system_data['gpu']:.0f}"),
-        ]
+        parts = []
+        parts.append(f"CPU at {system_data['cpu']:.0f} percent.")
+        if system_data["gpu"] >= 0:
+            parts.append(f"GPU at {system_data['gpu']:.0f} percent.")
         if system_data["battery"] is not None:
-            charge = "charging" if system_data["battery_charging"] else "on battery"
-            p2_lines.append(f"Battery: {system_data['battery']:.0f}% ({charge}).")
-        if system_data["disk_total"] is not None:
-            p2_lines.append(f"Primary drive: {system_data['disk_used']:.1f} of {system_data['disk_total']:.0f} gigabytes used.")
+            charge = "charging" if system_data["battery_charging"] else f"{system_data['battery']:.0f} percent on battery"
+            parts.append(f"Battery {charge}.")
         if weather_temp:
-            p2_lines.append(f"Kotha Gudem temperature: {weather_temp}.")
-
-        p2_lines += [
-            "",
-            "Voice rules:",
-            "- Speak the stats naturally — one short sentence each.",
-            "- Mention CPU, GPU, battery, storage, and weather in that order.",
-            "- Keep it brief — max 3 sentences total.",
-            "- Say the full details are on screen.",
-            "- Ask if they need anything.",
-            "- Do NOT say [BRIEFING_SYSTEM].",
-            "- Respond in "
-            + (f"language: {lang}." if lang else "the user's language."),
-        ]
-
-        await self.session.send_client_content(
-            turns={"parts": [{"text": '\n'.join(p2_lines)}]},
-            turn_complete=True,
-        )
-        self.ui.write_log("SYS: Briefing system status sent.")
+            parts.append(f"Kotha Gudem is {weather_temp}.")
+        parts.append("Full details are on screen.")
+        self.speak(" ".join(parts))
+        self.ui.write_log("SYS: Briefing system status delivered.")
 
     # ── System monitor ──────────────────────────────────────────────────────────
 
     async def _run_system_monitor(self) -> None:
-        """Background task: voice alerts when metrics exceed thresholds."""
+        """Background task: speak alerts when system metrics exceed thresholds."""
         while True:
             await asyncio.sleep(10)
-            alert = await asyncio.to_thread(self._sys_monitor.check)
-            if alert and self.session:
-                try:
-                    await self.session.send_client_content(
-                        turns={"parts": [{"text": alert}]},
-                        turn_complete=True,
-                    )
-                except Exception as e:
-                    print(f"[Monitor] ⚠️ Could not send alert: {e}")
-
-    # ── Phone audio relay ────────────────────────────────────────────────────────
-
-    async def _relay_phone_audio(self) -> None:
-        """Forward phone mic PCM chunks from dashboard queue into the Gemini Live session."""
-        q = self._dashboard._phone_audio_queue
-        while True:
             try:
-                chunk = await asyncio.wait_for(q.get(), timeout=1.0)
-            except asyncio.TimeoutError:
-                # No audio for 1 s → phone mic inactive, give PC mic back
-                self._phone_active = False
-                continue
-            self._phone_active = True   # phone is streaming — silence PC mic
+                alert = await asyncio.to_thread(self._sys_monitor.check)
+                if alert:
+                    with self._speaking_lock:
+                        speaking = self._is_speaking
+                    if not speaking:
+                        self.speak(alert)
+            except Exception as e:
+                print(f"[Monitor] ⚠️ {e}")
+
+    # ── Background topic monitor ─────────────────────────────────────────────────
+
+    async def _run_background_monitor(self) -> None:
+        """Check user-configured topics once per day; speak alerts when new headlines appear."""
+        await asyncio.sleep(300)          # wait 5 min after startup before first check
+        while True:
             with self._speaking_lock:
                 speaking = self._is_speaking
-            if not speaking and not self.ui.muted:
+            recent_speech = (time.monotonic() - self._last_user_speech) < 30
+            if not speaking and not recent_speech:
                 try:
-                    self.out_queue.put_nowait(chunk)
-                except asyncio.QueueFull:
-                    pass
+                    alerts = await asyncio.to_thread(monitor_check_all)
+                    if alerts:
+                        lang = "English"
+                        for alert in alerts:
+                            msg = (
+                                f"{alert}\n\n"
+                                f"Inform the user about this development naturally in {lang}. "
+                                "One brief sentence only."
+                            )
+                            self.speak(msg)
+                            self.ui.write_log(f"SYS: Monitor alert sent.")
+                            await asyncio.sleep(6)
+                except Exception as e:
+                    print(f"[Monitor] ⚠️ Background check error: {e}")
+            await asyncio.sleep(1800)     # check every 30 minutes
+
+    # ── Proactive mode ─────────────────────────────────────────────────────────
+
+    async def _run_proactive_mode(self) -> None:
+        """
+        Background task: periodically checks if the user has been silent long enough,
+        then hands time + memory context to the AI so it can decide what to say proactively.
+        """
+        while True:
+            await asyncio.sleep(60)   # evaluate once per minute
+
+            with self._speaking_lock:
+                speaking = self._is_speaking
+            if speaking:
+                continue
+
+            if not self._proactive.should_trigger(self._last_user_speech):
+                continue
+
+            self._proactive.mark_triggered()
+
+            try:
+                memory       = await asyncio.to_thread(load_memory)
+                monitors     = await asyncio.to_thread(list_monitors)
+                recent_turns = self._session_log[-8:] if hasattr(self, '_session_log') and self._session_log else []
+                prompt = self._proactive.build_prompt(
+                    memory       = memory,
+                    monitors     = monitors or None,
+                    recent_turns = recent_turns or None,
+                )
+
+                # Use ProviderManager for the proactive check
+                from core.providers.manager import ProviderManager
+                pm = ProviderManager()
+                response = await asyncio.to_thread(
+                    lambda: pm.generate(prompt, max_tokens=200, temperature=0.3)
+                )
+                if response and response.strip():
+                    self.speak(response.strip())
+                    self.ui.write_log("SYS: Proactive check-in.")
+            except Exception as e:
+                print(f"[Proactive] ⚠️ {e}")
+
+    # ── Phone audio relay ───────────────────────────────────────────────────────
 
     def _on_phone_connected(self) -> None:
         self.ui.write_log("SYS: Phone connected via Remote Dashboard.")
         self.ui.notify_phone_connected()
 
-    # ── dashboard command relay ─────────────────────────────────────────────
+    # ── dashboard command relay ─────────────────────────────────────────────────
 
     async def _process_dashboard_commands(self) -> None:
+        """Remote dashboard sends text commands → IRA processes them."""
         while True:
             try:
                 text = await asyncio.wait_for(
@@ -2639,163 +2602,85 @@ class JarvisLive:
                 )
                 if not text:
                     continue
-                # Wait up to 8s for session to become ready after a wake
-                for _ in range(80):
-                    if self.session:
-                        break
-                    await asyncio.sleep(0.1)
-                if self.session:
-                    await self.session.send_client_content(
-                        turns={"parts": [{"text": text}]},
-                        turn_complete=True,
-                    )
-                    self.ui.write_log(f"[Web]: {text}")
-                else:
-                    print(f"[Dashboard] Dropped command (no session): {text}")
+                self.ui.write_log(f"[Web]: {text}")
+                asyncio.create_task(self._process_text_chat(text))
             except asyncio.TimeoutError:
                 pass
             except Exception as e:
                 print(f"[Dashboard] Command error: {e}")
                 await asyncio.sleep(0.5)
 
-    # ── main loop ───────────────────────────────────────────────────────────
+
+    # ── main loop (text chat + neural voice) ────────────────────────────────────
 
     async def run(self):
         self._loop = asyncio.get_event_loop()
 
-        client = genai.Client(
-            api_key=_get_api_key(),
-            http_options={"api_version": "v1beta"}
-        )
-
-        # Start dashboard (optional — needs: pip install fastapi "uvicorn[standard]" cryptography)
+        # Start dashboard
         try:
             from dashboard.server import DashboardServer
             self._dashboard = DashboardServer()
             self._dashboard.set_connect_callback(self._on_phone_connected)
             asyncio.create_task(self._dashboard.serve())
-            # Runs for the whole lifetime, not just inside an active session
             asyncio.create_task(self._process_dashboard_commands())
         except Exception as e:
             print(f"[Dashboard] Disabled: {e}")
             self._dashboard = None
 
-        while True:
+        print("[IRA] Text chat mode active — use the chat box to talk.")
+        self.ui.set_state("LISTENING")
+        self.ui.write_log("SYS: IRA online (text chat).")
+
+        if self._dashboard:
             try:
-                # Ensure the loop's default executor is ALIVE before each
-                # connect attempt. A previously shut-down executor (the
-                # "cannot schedule new futures after shutdown" fault) must be
-                # replaced here — not only after a failure — so the first
-                # connection of a fresh launch also works.
-                try:
-                    self._loop = asyncio.get_event_loop()
-                    _ex = getattr(self._loop, "_default_executor", None)
-                    if _ex is None or getattr(_ex, "_shutdown", False):
-                        self._loop.set_default_executor(
-                            concurrent.futures.ThreadPoolExecutor(max_workers=8)
-                        )
-                except Exception:
-                    pass
-
-                print("[JARVIS] Connecting...")
-                self.ui.set_state("THINKING")
-                config = self._build_config()
-
-                async with (
-                    client.aio.live.connect(model=LIVE_MODEL, config=config) as session,
-                    asyncio.TaskGroup() as tg,
-                ):
-                    self.session          = session
-                    self.audio_in_queue   = asyncio.Queue()
-                    self.out_queue        = asyncio.Queue(maxsize=200)
-                    self._turn_done_event = asyncio.Event()
-
-                    print("[JARVIS] Connected.")
-                    self.ui.set_state("LISTENING")
-                    self.ui.write_log("SYS: IRA online.")
-
-                    if self._dashboard:
-                        await self._dashboard.broadcast({"type": "status", "state": "active"})
-
-                    tg.create_task(self._send_realtime())
-                    tg.create_task(self._listen_audio())
-                    tg.create_task(self._receive_audio())
-                    tg.create_task(self._play_audio())
-                    tg.create_task(self._run_system_monitor())
-                    if self._dashboard:
-                        tg.create_task(self._relay_phone_audio())
-
-                    # Background self-improvement tasks
-                    tg.create_task(self._bg_tasks.start())
-
-                    # Morning briefing — fires once per process launch
-                    if not self._briefing_sent:
-                        self._briefing_sent = True
-                        tg.create_task(self._send_startup_briefing())
-
-            except Exception as e:
-                print(f"[JARVIS] Error: {e}")
-                traceback.print_exc()
-            finally:
-                self.session = None
-
-            self.set_speaking(False)
-            self.ui.set_state("SLEEPING")
-
-            if self._dashboard:
-                await self._dashboard.broadcast({"type": "status", "state": "sleeping"})
-
-            print("[JARVIS] Reconnecting in 3s...")
-            # The live voice loop (mic in / speaker out / Gemini Live) dies on
-            # launch with: RuntimeError: cannot schedule new futures after
-            # shutdown.  The original recovery only recreated the default
-            # executor when it was None — but after ThreadPoolExecutor.shutdown()
-            # the object still EXISTS, just in a dead state, so submit() keeps
-            # failing and the loop reconnects forever without ever recovering.
-            # Fix: ALWAYS force-recreate a fresh, live executor before the next
-            # connect attempt so run_in_executor / asyncio.to_thread schedule.
-            try:
-                self._loop = asyncio.get_event_loop()
-                old = getattr(self._loop, "_default_executor", None)
-                _dead = old is None or getattr(old, "_shutdown", False) or getattr(old, "_shutdown_lock", None) is not None and old._shutdown  # type: ignore[attr-defined]
-                if _dead or old is None:
-                    self._loop.set_default_executor(
-                        concurrent.futures.ThreadPoolExecutor(max_workers=8)
-                    )
-                    print("[JARVIS] ♻️ Recreated default executor (was shutdown).")
+                await self._dashboard.broadcast({"type": "status", "state": "active"})
             except Exception:
                 pass
-            await asyncio.sleep(3)
+
+        # Background tasks
+        asyncio.create_task(self._run_system_monitor())
+        asyncio.create_task(self._bg_tasks.start())
+        asyncio.create_task(self._run_background_monitor())
+        asyncio.create_task(self._run_proactive_mode())
+
+        # Morning briefing — fires once per process launch
+        if not self._briefing_sent:
+            self._briefing_sent = True
+            asyncio.create_task(self._send_startup_briefing())
+
+        # Keep loop alive
+        try:
+            while True:
+                await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            pass
+
 
 def main():
-    # Seed persona files (SOUL.md, MEMORY.md, etc.)
     try:
         from core.memory.persona import ensure_persona_layout
         ensure_persona_layout()
     except Exception:
         pass
 
-    # Initialize memory engine (MEMORY.md / USER.md with migration from long_term.json)
     try:
         from core.memory.memory_tool import get_memory_store
         store = get_memory_store()
-        print(f"[Memory] MemoryStore loaded: {store.has_entries('memory')} memory entries, {store.has_entries('user')} user entries")
+        print(f"[Memory] MemoryStore: {len(store.memory_entries)} memory entries, {len(store.user_entries)} user entries")
     except Exception as e:
-        print(f"[Memory] MemoryStore init skipped: {e}")
+        print(f"[Memory] Init skipped: {e}")
 
-    # Initialize FTS5 session search index
     try:
         from core.memory.session_search import init_search as init_fts
         count = init_fts()
-        print(f"[Search] Session search index built: {count} messages")
+        print(f"[Search] Index: {count} messages")
     except Exception as e:
-        print(f"[Search] Session search init skipped: {e}")
+        print(f"[Search] Init skipped: {e}")
 
-    # Initialize the content database (tasks, articles, expenses, mail)
     try:
         from core.data.database import init_db
         init_db()
-        print("[DB] Content database initialised.")
+        print("[DB] Content database ready.")
     except Exception as e:
         print(f"[DB] Init skipped: {e}")
 
@@ -2811,6 +2696,7 @@ def main():
 
     threading.Thread(target=runner, daemon=True).start()
     ui.root.mainloop()
+
 
 if __name__ == "__main__":
     main()

@@ -76,7 +76,7 @@ def _parse_date(raw: str) -> str:
         if re.match(r"\d{4}-\d{2}-\d{2}", result):
             return result
     except Exception as e:
-        print(f"[FlightFinder] ⚠️ Gemini date parse failed: {e}")
+        print(f"[FlightFinder] ⚠️ AI date parse failed: {e}")
 
     for month_name, month_num in _MONTH_MAP.items():
         if month_name in lower:
@@ -183,7 +183,7 @@ def _parse_flights_with_gemini(
         flights  = json.loads(text)
         return flights if isinstance(flights, list) else []
     except Exception as e:
-        print(f"[FlightFinder] ⚠️ Gemini parse failed: {e}")
+        print(f"[FlightFinder] ⚠️ AI parse failed: {e}")
         return []
 
 def _format_spoken(

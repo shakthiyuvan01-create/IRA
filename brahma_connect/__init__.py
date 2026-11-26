@@ -1,7 +1,7 @@
 """Brahma Connect subsystem.
 
 This package adds the local gateway, device registry, pairing flow, and
-protocol definitions used by Brahma AI to reach companion devices.
+protocol definitions used by IRA to reach companion devices.
 """
 
 from .service import BrahmaConnectService, get_service

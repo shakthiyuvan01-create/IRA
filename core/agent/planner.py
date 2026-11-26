@@ -14,7 +14,7 @@ BASE_DIR        = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "core" / "config" / "api_keys.json"
 
 
-PLANNER_PROMPT = """You are the planning module of Brahma AI - Lite, a personal AI assistant.
+PLANNER_PROMPT = """You are the planning module of IRA, a personal AI assistant.
 Your job: break any user goal into a sequence of steps using ONLY the tools listed below.
 
 ABSOLUTE RULES:
@@ -267,7 +267,7 @@ def _fallback_plan(goal: str) -> dict:
             {
               "step": 1,
               "tool": "claude_code",
-              "description": f"Create the requested website with Claude Code: {goal}",
+              "description": f"Create the requested website with code engine: {goal}",
               "parameters": {"description": goal},
               "critical": True,
             }

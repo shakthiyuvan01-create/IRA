@@ -32,13 +32,13 @@ def main() -> int:
     zc = Zeroconf()
     try:
         browser = ServiceBrowser(zc, "_BRAHMA._tcp.local.", handlers=[on_change])
-        print("[discover] Scanning LAN for _BRAHMA (Brahma Connect) for 10s...")
+        print("[discover] Scanning LAN for IRA Connect for 10s...")
         time.sleep(10)
     finally:
         zc.close()
 
     if not found:
-        print("[discover] No Brahma Connect gateway found on the LAN.")
+        print("[discover] No IRA Connect gateway found on the LAN.")
         print("          -> Start it on the Mac: python roomhub/mac_roomhub_launcher.py")
         return 1
     for a, p, props in found:

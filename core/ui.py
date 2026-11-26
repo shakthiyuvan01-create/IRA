@@ -389,6 +389,8 @@ _ICON_SVG: dict[str, str] = {
     "key":         '<path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/>',
     "map-pin":     '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
     "shield":      '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+    "speaker":     '<path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>',
+    "volume-2":    '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>',
     "user":        '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
     "fan":         '<path d="M10.827 16.379a6.082 6.082 0 0 1-8.618-7.002l5.412 1.45a6.082 6.082 0 0 1 7.002-8.618l-1.45 5.412a6.082 6.082 0 0 1 8.618 7.002l-5.412-1.45a6.082 6.082 0 0 1-7.002 8.618l1.45-5.412Z"/><path d="M12 12v.01"/>',
     "plug":        '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
@@ -2842,6 +2844,7 @@ class SettingsOverlay(QWidget):
         for icon, label in [("server", "Providers"),
                             ("user", "Profile"),
                             ("shield", "Rules"),
+                            ("volume-2", "Audio"),
                             ("smartphone", "Remote")]:
             btn = _NavButton(icon, label)
             btn.clicked.connect(lambda _, b=btn: self._switch(b))
@@ -2860,6 +2863,7 @@ class SettingsOverlay(QWidget):
         self._build_provider_page()
         self._build_profile_page()
         self._build_rules_page()
+        self._build_audio_page()
         self._build_remote_page()
         body.addWidget(self._stack, stretch=1)
 
@@ -3110,6 +3114,90 @@ class SettingsOverlay(QWidget):
         lay.addWidget(box)
         lay.addStretch(1)
 
+    def _build_audio_page(self):
+        scroll, lay = self._page()
+        self._stack.addWidget(scroll)
+        lay.addLayout(self._page_title("AUDIO DEVICES", "Select input (mic) and output (TTS) devices. Changes apply immediately."))
+
+        # Query available devices
+        try:
+            import sounddevice as sd
+            devices = sd.query_devices()
+        except Exception:
+            devices = []
+
+        input_devices = []
+        output_devices = []
+        for i, d in enumerate(devices):
+            if d["max_input_channels"] > 0:
+                input_devices.append((i, d["name"]))
+            if d["max_output_channels"] > 0:
+                output_devices.append((i, d["name"]))
+
+        # Output device (TTS/speech)
+        box, bl = self._make_field("speaker", "OUTPUT DEVICE", "Where IRA speaks — TTS, voice replies")
+        self._audio_output = self._combo(items=[name for _, name in output_devices], editable=False)
+        self._audio_output.setFixedWidth(380)
+        bl.addWidget(self._audio_output)
+        lay.addWidget(box)
+
+        # Input device (mic)
+        box, bl = self._make_field("mic", "INPUT DEVICE", "Microphone for voice commands")
+        self._audio_input = self._combo(items=[name for _, name in input_devices], editable=False)
+        self._audio_input.setFixedWidth(380)
+        bl.addWidget(self._audio_input)
+        lay.addWidget(box)
+
+        # Test buttons
+        test_box = QWidget()
+        test_box.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        test_lay = QHBoxLayout(test_box)
+        test_lay.setContentsMargins(0, 8, 0, 0)
+        test_lay.setSpacing(10)
+
+        test_out_btn = QPushButton("TEST OUTPUT")
+        test_out_btn.setFixedHeight(32)
+        test_out_btn.setFont(_font(7, QFont.Weight.DemiBold))
+        test_out_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        test_out_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: rgba(0, 175, 255, 0.10);
+                color: {C.PRI};
+                border: 1px solid rgba(0, 175, 255, 0.22); border-radius: 9px;
+                letter-spacing: 0.6px; padding: 0 18px;
+            }}
+            QPushButton:hover {{
+                background: rgba(0, 175, 255, 0.16);
+                border: 1px solid rgba(0, 175, 255, 0.40);
+            }}
+        """)
+        test_out_btn.clicked.connect(self._test_audio_output)
+        test_lay.addWidget(test_out_btn)
+
+        test_in_btn = QPushButton("TEST INPUT")
+        test_in_btn.setFixedHeight(32)
+        test_in_btn.setFont(_font(7, QFont.Weight.DemiBold))
+        test_in_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        test_in_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: rgba(255, 180, 0, 0.10);
+                color: #FFB400;
+                border: 1px solid rgba(255, 180, 0, 0.22); border-radius: 9px;
+                letter-spacing: 0.6px; padding: 0 18px;
+            }}
+            QPushButton:hover {{
+                background: rgba(255, 180, 0, 0.16);
+                border: 1px solid rgba(255, 180, 0, 0.40);
+            }}
+        """)
+        test_in_btn.clicked.connect(self._test_audio_input)
+        test_lay.addWidget(test_in_btn)
+
+        test_lay.addStretch(1)
+        lay.addWidget(test_box)
+
+        lay.addStretch(1)
+
     def _build_remote_page(self):
         scroll, lay = self._page()
         self._stack.addWidget(scroll)
@@ -3191,13 +3279,40 @@ class SettingsOverlay(QWidget):
             "news_city":  self._news.text().strip(),
         }
 
+    def _gather_audio(self) -> dict:
+        out = {}
+        if hasattr(self, '_audio_output'):
+            v = self._audio_output.currentText().strip()
+            if v:
+                out["audio_output_device"] = v
+        if hasattr(self, '_audio_input'):
+            v = self._audio_input.currentText().strip()
+            if v:
+                out["audio_input_device"] = v
+        return out
+
     def _save(self):
         from core.settings_store import save_providers, save_profile
 
         prov = self._gather_providers()
         prof = self._gather_profile()
+        audio = self._gather_audio()
         r1 = save_providers(prov)
         r2 = save_profile(prof)
+
+        # Save audio devices to persona_config.json
+        if audio:
+            try:
+                import json as _json
+                cfg_path = BASE_DIR / "core" / "persona" / "persona_config.json"
+                cfg = {}
+                if cfg_path.exists():
+                    cfg = _json.loads(cfg_path.read_text(encoding="utf-8"))
+                cfg.update(audio)
+                cfg_path.parent.mkdir(parents=True, exist_ok=True)
+                cfg_path.write_text(_json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+            except Exception as e:
+                print(f"[Audio] Failed to save device config: {e}")
 
         errs = r1["errors"] + r2["errors"]
         if errs:
@@ -3236,6 +3351,95 @@ class SettingsOverlay(QWidget):
         self._rules.setPlainText(prof.get("rules", ""))
         self._news.setText(prof.get("news_city", ""))
 
+        # Load audio devices from persona_config.json
+        try:
+            import json as _json
+            cfg_path = BASE_DIR / "core" / "persona" / "persona_config.json"
+            if cfg_path.exists():
+                cfg = _json.loads(cfg_path.read_text(encoding="utf-8"))
+                out_dev = cfg.get("audio_output_device", "")
+                in_dev = cfg.get("audio_input_device", "")
+                if out_dev and hasattr(self, '_audio_output'):
+                    idx = self._audio_output.findText(out_dev, Qt.MatchFlag.MatchFixedString)
+                    if idx >= 0:
+                        self._audio_output.setCurrentIndex(idx)
+                if in_dev and hasattr(self, '_audio_input'):
+                    idx = self._audio_input.findText(in_dev, Qt.MatchFlag.MatchFixedString)
+                    if idx >= 0:
+                        self._audio_input.setCurrentIndex(idx)
+        except Exception as e:
+            print(f"[Audio] Failed to load device config: {e}")
+
+    # ── Audio test methods ────────────────────────────────────────────────
+
+    def _test_audio_output(self):
+        """Play a test tone on the selected output device."""
+        if not hasattr(self, '_audio_output'):
+            return
+        name = self._audio_output.currentText().strip()
+        if not name:
+            self._status.setText("No output device selected")
+            self._status.setStyleSheet(f"color: {C.ERROR}; background: transparent;")
+            return
+        try:
+            import sounddevice as sd
+            import numpy as np
+            devices = sd.query_devices()
+            dev_idx = None
+            for i, d in enumerate(devices):
+                if d["name"] == name and d["max_output_channels"] > 0:
+                    dev_idx = i
+                    break
+            if dev_idx is None:
+                self._status.setText(f"Device not found: {name}")
+                self._status.setStyleSheet(f"color: {C.ERROR}; background: transparent;")
+                return
+            # Play a 440 Hz tone for 500ms
+            sr = 48000
+            duration = 0.5
+            t = np.arange(int(sr * duration)) / sr
+            tone = (np.sin(2 * np.pi * 440 * t) * 32767 * 0.3).astype(np.int16)
+            sd.play(tone, samplerate=sr, device=dev_idx, blocking=True)
+            self._status.setText(f"Test played on {name}")
+            self._status.setStyleSheet(f"color: {C.GREEN}; background: transparent;")
+        except Exception as e:
+            self._status.setText(f"Test failed: {e}")
+            self._status.setStyleSheet(f"color: {C.ERROR}; background: transparent;")
+
+    def _test_audio_input(self):
+        """Record a brief sample from the selected input device and show level."""
+        if not hasattr(self, '_audio_input'):
+            return
+        name = self._audio_input.currentText().strip()
+        if not name:
+            self._status.setText("No input device selected")
+            self._status.setStyleSheet(f"color: {C.ERROR}; background: transparent;")
+            return
+        try:
+            import sounddevice as sd
+            import numpy as np
+            devices = sd.query_devices()
+            dev_idx = None
+            for i, d in enumerate(devices):
+                if d["name"] == name and d["max_input_channels"] > 0:
+                    dev_idx = i
+                    break
+            if dev_idx is None:
+                self._status.setText(f"Device not found: {name}")
+                self._status.setStyleSheet(f"color: {C.ERROR}; background: transparent;")
+                return
+            # Record 500ms
+            sr = 16000
+            duration = 0.5
+            recording = sd.rec(int(sr * duration), samplerate=sr, channels=1, dtype='int16', device=dev_idx, blocking=True)
+            rms = np.sqrt(np.mean(recording.astype(np.float32) ** 2))
+            db = 20 * np.log10(max(rms, 1e-10))
+            self._status.setText(f"Input level: {db:.1f} dBFS")
+            self._status.setStyleSheet(f"color: {C.GREEN}; background: transparent;")
+        except Exception as e:
+            self._status.setText(f"Test failed: {e}")
+            self._status.setStyleSheet(f"color: {C.ERROR}; background: transparent;")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Main window
@@ -3256,7 +3460,7 @@ _BTN_ICON = {
     "Website": "layout",
     "Task Manager": "list", "Expenses": "wallet", "Reminder": "bell",
     "Scheduler": "clock", "Briefing": "sunrise", "Meeting": "users",
-    "Code Helper": "code", "Dev Agent": "bot", "Claude Code": "terminal",
+    "Code Helper": "code", "Dev Agent": "bot", "Code Engine": "terminal",
     "Flights": "plane", "Games": "music", "Analyze": "pie",
     "Smart Home": "home", "Self Check": "check", "Provider Status": "server",
 }
@@ -3466,7 +3670,7 @@ class MainWindow(QMainWindow):
         cards = QHBoxLayout(); cards.setSpacing(8)
         self._header_cards = {}
         for icon, label, value in [
-            ("sparkles", "AI MODEL", "Gemini 2.5 Flash"),
+            ("sparkles", "AI MODEL", "IRA Brain"),
             ("zap",      "LATENCY",  "12ms"),
             ("database", "CONTEXT",  "2.1GB"),
             ("waveform", "VOICE",    "Iris"),
@@ -3788,7 +3992,7 @@ class MainWindow(QMainWindow):
         self._add_btn_group(btn_lay, "DEV", C.PRI, [
             ("Code Helper", "Help me with code"),
             ("Dev Agent", "Build a project"),
-            ("Claude Code", "Use Claude Code"),
+            ("Code Engine", "Use Code Engine"),
         ])
 
         self._add_btn_group(btn_lay, "MORE", C.TEXT_MED, [

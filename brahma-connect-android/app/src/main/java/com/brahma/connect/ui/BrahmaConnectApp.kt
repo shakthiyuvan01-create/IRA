@@ -342,7 +342,7 @@ fun AboutScreen(onNext: () -> Unit) {
         GlassCard {
             Text("Hardware Bridge", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(16.dp))
-            Text("This agent acts as a secure physical bridge between your Android device and your PC's Brahma AI.", color = androidx.compose.ui.graphics.Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text("This agent acts as a secure physical bridge between your Android device and your PC's IRA.", color = androidx.compose.ui.graphics.Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             Spacer(modifier = Modifier.height(24.dp))
             Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) {
                 Text("Next")
@@ -450,7 +450,7 @@ private fun DiscoveryScreen(
     ) {
         Text("BRAHMA CONNECT", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = androidx.compose.ui.graphics.Color.White)
         Spacer(Modifier.height(8.dp))
-        Text("Connect this device to Brahma AI.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Connect this device to IRA.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(24.dp))
         Card(colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f), contentColor = androidx.compose.ui.graphics.Color.White), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))) {
             Column(Modifier.padding(20.dp)) {

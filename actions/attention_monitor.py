@@ -342,7 +342,7 @@ def speak_native(text: str) -> None:
     try:
         import edge_tts
     except Exception as exc:  # pragma: no cover
-        print(f"[AttentionMonitor] Edge TTS import failed: {exc}")
+        print(f"[AttentionMonitor] Voice import failed: {exc}")
         return
 
     try:
@@ -353,11 +353,11 @@ def speak_native(text: str) -> None:
     audio_path = os.path.join(tempfile.gettempdir(), f"brahma_edge_tts_{uuid.uuid4().hex}.mp3")
     try:
         # Use a male neural voice for app speech so daily briefing and alerts sound
-        # closer to Brahma's normal male audio output.
+        # closer to IRA's normal male audio output.
         communicator = edge_tts.Communicate(text, voice="en-US-GuyNeural")
         communicator.save_sync(audio_path)
     except Exception as exc:  # pragma: no cover
-        print(f"[AttentionMonitor] Edge TTS generation failed: {exc}")
+        print(f"[AttentionMonitor] Voice generation failed: {exc}")
         _cleanup_current_audio()
         return
 
@@ -384,7 +384,7 @@ def speak_native(text: str) -> None:
         _current_player_alias = player_alias
         _current_audio_path = audio_path
     except Exception as exc:  # pragma: no cover
-        print(f"[AttentionMonitor] Edge TTS playback failed: {exc}")
+        print(f"[AttentionMonitor] Voice playback failed: {exc}")
         _cleanup_current_audio()
         return
 

@@ -82,7 +82,7 @@ cfg_path.write_text(
 
 svc = get_service(ROOT)
 svc.start_background()
-print(f"[Mac] Brahma Connect gateway starting at http://{MAC_LAN_IP}:{PORT}")
+print(f"[Mac] IRA Connect gateway starting at http://{MAC_LAN_IP}:{PORT}")
 print(f"[Mac] Pair from Windows with:")
 print(f"      python roomhub/pc_pair_headless.py --host {MAC_LAN_IP} "
       f"--port {PORT} --token {ADMIN_TOKEN}")

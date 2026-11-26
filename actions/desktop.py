@@ -462,7 +462,7 @@ def desktop_control(
             if not actual_task:
                 return "Please describe what you want to do on the desktop."
 
-            print(f"[Desktop] Asking Gemini: {actual_task}")
+            print(f"[Desktop] Thinking: {actual_task}")
             if player:
                 player.write_log("[Desktop] Generating action...")
 

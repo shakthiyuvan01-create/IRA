@@ -72,7 +72,7 @@ def main() -> int:
 
             if mtype == "pair_request":
                 print("[PC] Pairing request received on the Mac. APPROVE it in IRA's "
-                      "Brahma Connect panel (or run: POST /gateway/pending/<id>/approve).")
+                      "IRA Connect panel (or run: POST /gateway/pending/<id>/approve).")
                 print(f"      pending_id={payload.get('pending_id')}")
 
             elif mtype == "pair_approved":

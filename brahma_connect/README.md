@@ -1,6 +1,6 @@
 # Brahma Connect
 
-Brahma Connect is the local multi-device transport layer for Brahma AI.
+Brahma Connect is the local multi-device transport layer for IRA.
 
 It keeps the AI brain inside the existing Brahma desktop app and adds a
 gateway that can pair with companion devices on the local network.

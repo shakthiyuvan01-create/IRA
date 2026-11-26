@@ -158,7 +158,7 @@ def get_workspace_summary_info() -> tuple[str, dict]:
     state["screenshots_count"] = screenshots_count
         
     # Recent workspace project
-    projects_dir = Path.home() / "Desktop" / "BrahmaProjects"
+    projects_dir = Path.home() / "Desktop" / "IRA_Projects"
     recent_project_name = None
     recent_project_time = 0
     if projects_dir.exists():

@@ -219,7 +219,7 @@ async def main() -> None:
     while True:
         try:
             async with client.aio.live.connect(model=LIVE_MODEL, config=config) as session:
-                print("[Hub] Connected to Gemini Live. Speak into your headset.")
+                print("[Hub] Connected to IRA voice. Speak into your headset.")
                 capture_dev.start(cg)
                 playback_dev.start(pg)
                 # asyncio.TaskGroup is 3.11+; use gather for 3.9 compatibility

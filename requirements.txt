@@ -36,7 +36,7 @@ feedparser
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
-# Brahma AI feature integrations
+# IRA feature integrations
 python-kasa
 mediapipe
 pyaudio

@@ -798,5 +798,5 @@ class DashboardServer:
 
         proto = "https" if use_ssl else "http"
         print(f"[Dashboard] {proto}://{self._ip}:{PORT}")
-        print("[Dashboard] Press 'Remote Control' in JARVIS UI to get the QR code.")
+        print("[Dashboard] Press 'Remote Control' in IRA UI to get the QR code.")
         await uvicorn.Server(cfg).serve()

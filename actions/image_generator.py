@@ -74,9 +74,9 @@ def _generate_single_gemini(prompt: str, seed: int) -> bytes | None:
         for part in response.candidates[0].content.parts:
             if part.inline_data and part.inline_data.data:
                 return part.inline_data.data
-        print(f"[ImageGen] Gemini returned no inline image (seed={seed})")
+        print(f"[ImageGen] No inline image returned (seed={seed})")
     except Exception as e:
-        print(f"[ImageGen] Gemini failed (seed={seed}): {e}")
+        print(f"[ImageGen] Image generation failed (seed={seed}): {e}")
     return None
 
 
