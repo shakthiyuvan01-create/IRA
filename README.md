@@ -81,6 +81,28 @@ python main.py
 
 ---
 
+## 🔐 Face Lock
+
+When IRA opens, the main window appears first and a face scan covers it a moment later.
+IRA doesn't start listening until you're verified.
+
+- **First launch:** look at the camera and IRA records your face (8 quick samples).
+- **Every launch after:** only that face unlocks IRA.
+- **Password fallback:** tap the small **blue dot** in the bottom-right corner of the scan screen.
+
+Face data (embeddings, not photos) and the password hash stay on this computer in
+`%APPDATA%\IRA\face_lock\` (macOS `~/Library/Application Support/IRA/face_lock/`,
+Linux `~/.config/IRA/face_lock/`). The two OpenCV face models (~38 MB) download once on first use.
+
+```bash
+python -m core.face_lock --set-password   # change the fallback password
+python -m core.face_lock --reset-face     # re-enroll your face on next launch
+```
+
+Set `IRA_FACE_LOCK=0` to skip the lock (for debugging).
+
+---
+
 ## 🎙️ Real-Time Voice (JARVIS)
 
 - **Live audio conversation** — streaming mic in, streaming speech out, ultra-low latency

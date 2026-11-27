@@ -3360,8 +3360,15 @@ class MainWindow(QMainWindow):
 
         self._overlay: SetupOverlay | None = None
         self._ready = self._check_config()
-        if not self._ready:
-            self._show_setup()
+        # Face lock: the main window opens first, then the face scan covers it.
+        # IRA's voice loop waits until the face (or password) is verified.
+        self._face_lock = None
+        self._unlocked = os.environ.get("IRA_FACE_LOCK", "1").strip() == "0"
+        if self._unlocked:
+            if not self._ready:
+                self._show_setup()
+        else:
+            QTimer.singleShot(700, self._show_face_lock)
 
         sc_mute = QShortcut(QKeySequence("F4"), self)
         sc_mute.activated.connect(self._toggle_mute)
@@ -3379,6 +3386,8 @@ class MainWindow(QMainWindow):
         cw = self.centralWidget()
         if hasattr(self, '_ambient'):
             self._ambient.setGeometry(cw.rect())
+        if getattr(self, '_face_lock', None) is not None and self._face_lock.isVisible():
+            self._face_lock.setGeometry(cw.rect())
         if self._overlay and self._overlay.isVisible():
             ow, oh = 460, 420
             self._overlay.setGeometry(
@@ -4235,6 +4244,35 @@ class MainWindow(QMainWindow):
         except Exception:
             return False
 
+    def _show_face_lock(self):
+        try:
+            from core.face_lock_ui import FaceLockOverlay
+        except Exception as e:
+            # Never leave the owner locked out because of a missing dependency.
+            print(f"[FaceLock] Disabled: {e}")
+            self._on_face_unlocked("unavailable")
+            return
+        cw = self.centralWidget()
+        ov = FaceLockOverlay(cw)
+        ov.setGeometry(cw.rect())
+        ov.unlocked.connect(self._on_face_unlocked)
+        self._face_lock = ov
+        ov.start()
+
+    def _on_face_unlocked(self, how: str):
+        if self._face_lock is not None:
+            self._face_lock.hide()
+        self._unlocked = True
+        msg = {
+            "enrolled": "SYS: Face enrolled. Welcome.",
+            "face": "SYS: Face verified. Welcome back.",
+            "password": "SYS: Unlocked with password.",
+        }.get(how)
+        if msg:
+            self._log.append_log(msg)
+        if not self._ready:
+            self._show_setup()
+
     def _show_setup(self):
         ov = SetupOverlay(self.centralWidget())
         cw = self.centralWidget()
@@ -4350,7 +4388,7 @@ class JarvisUI:
         self._win._log_sig.emit(text)
 
     def wait_for_api_key(self):
-        while not self._win._ready:
+        while not (self._win._ready and self._win._unlocked):
             time.sleep(0.1)
 
     def show_content(self, title: str, text: str):
