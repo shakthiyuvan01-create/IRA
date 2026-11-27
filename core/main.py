@@ -86,6 +86,7 @@ from actions.file_controller   import file_controller
 from actions.code_helper       import code_helper
 from actions.dev_agent         import dev_agent
 from actions.web_search        import web_search as web_search_action
+from actions.agent_reach       import agent_reach as agent_reach_action
 from actions.computer_control  import computer_control
 from actions.game_updater      import game_updater
 from actions.system_monitor    import SystemMonitor, get_system_status
@@ -191,6 +192,31 @@ TOOL_DECLARATIONS = [
                 "aspect": {"type": "STRING", "description": "Comparison aspect: price | specs | reviews | features"},
             },
             "required": ["query"]
+        }
+    },
+    {
+        "name": "agent_reach",
+        "description": (
+            "Reads and searches platforms that normal web search can't reach well, through "
+            "the Agent Reach tool (read-only). Use for: YouTube or Bilibili video subtitles "
+            "and transcripts, GitHub repos/issues/PRs, Reddit posts and comments, X/Twitter "
+            "posts and profiles, V2EX, LinkedIn jobs, XiaoHongShu notes, Xueqiu stock quotes, "
+            "or when the user pastes a link and wants its full content. "
+            "Actions: 'read' (give url), 'search' (give channel + query), any other channel "
+            "action such as 'subtitles' or 'quote' (give channel + query/url), "
+            "'channels' (list what's available), 'status' (which channels work). "
+            "Prefer web_search for general questions; use this when web_search can't get "
+            "the content."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action":  {"type": "STRING", "description": "read | search | channels | status | check | <channel action>"},
+                "url":     {"type": "STRING", "description": "Link to read (for read, or a channel action that takes a URL)"},
+                "channel": {"type": "STRING", "description": "youtube | github | reddit | twitter | bilibili | v2ex | linkedin | xiaohongshu | xueqiu | web ..."},
+                "query":   {"type": "STRING", "description": "Search terms, ID or symbol for the channel action"},
+                "limit":   {"type": "INTEGER", "description": "Max results (default set by the channel, up to 20)"},
+            },
         }
     },
     {
@@ -1821,6 +1847,13 @@ class JarvisLive:
                     mode  = args.get("mode", "search").upper()
                     query = args.get("query") or ", ".join(args.get("items", []))
                     label = f"{mode} — {query[:38]}" if query else mode
+                    self.ui.show_content(label, r)
+            elif name == "agent_reach":
+                r = await loop.run_in_executor(None, lambda: agent_reach_action(parameters=args, player=self.ui))
+                result = r or "Done."
+                if r and len(r) > 120:
+                    target = args.get("url") or args.get("query") or args.get("channel") or ""
+                    label = f"REACH — {target[:38]}" if target else "AGENT REACH"
                     self.ui.show_content(label, r)
             elif name == "file_processor":
                 if not args.get("file_path") and self.ui.current_file:

@@ -223,6 +223,7 @@ class LearningGraph:
         default_skills = [
             SkillNode("open_app", "system", "builtin", description="Launch applications on the computer"),
             SkillNode("web_search", "search", "builtin", description="Search the web for information"),
+            SkillNode("agent_reach", "search", "builtin", description="Read YouTube, GitHub, Reddit, X and other platforms via Agent Reach"),
             SkillNode("weather_report", "information", "builtin", description="Get weather reports for any city"),
             SkillNode("send_message", "communication", "builtin", description="Send messages via messaging platforms"),
             SkillNode("reminder", "system", "builtin", description="Set timed reminders"),

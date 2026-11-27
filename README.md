@@ -109,12 +109,32 @@ Actions auto-import and register as tools the assistant can call:
 | Category | Actions |
 |---|---|
 | **System & Desktop** | `open_app`, `computer_control`, `computer_settings`, `desktop`, `command_runner`, `clipboard_manager`, `task_manager`, `system_monitor` |
-| **Web & Search** | `web_search`, `web_scraper`, `browser_control`, `youtube_video`, `rss_collector`, `website_builder` |
+| **Web & Search** | `web_search`, `agent_reach`, `web_scraper`, `browser_control`, `youtube_video`, `rss_collector`, `website_builder` |
 | **Files & Docs** | `file_controller`, `file_processor`, `folder_analyzer`, `pdf_tools`, `docx_tools`, `ppt_builder`, `ppt_template_workflow`, `office_builder` |
 | **Productivity** | `reminder`, `scheduler`, `daily_briefing`, `expense_tracker`, `content_drafter`, `content_writer`, `meeting_assistant`, `attention_monitor` |
 | **Communication** | `send_message`, `gmail_reader`, `mail_reader`, `telegram_control`, `discord_control`, `slack_control` |
 | **Dev & Code** | `code_helper`, `dev_agent`, `claude_code_bridge`, `game_updater` |
 | **Life & Media** | `weather_report`, `flight_finder`, `image_generator`, `screen_overlay`, `screen_processor`, `hand_gesture_control` |
+
+### 👁️ Agent Reach (YouTube, GitHub, Reddit, X and more)
+
+The `agent_reach` action connects IRA to [Agent Reach](https://github.com/Panniantong/Agent-Reach),
+a read-only CLI that reaches content plain web search can't: YouTube/Bilibili subtitles,
+GitHub repos and issues, Reddit threads, X/Twitter posts, V2EX, LinkedIn jobs, XiaoHongShu
+and Xueqiu quotes. Install it once (needs [uv](https://docs.astral.sh/uv/)):
+
+```bash
+uv tool install https://github.com/Panniantong/Agent-Reach/releases/latest/download/agent-reach.zip
+agent-reach setup
+```
+
+> ⚠️ Don't `pip install agent-reach`: that PyPI package is a different project.
+
+Then just ask IRA things like *"read this YouTube video's subtitles"*, *"what's on this GitHub
+issue"* or *"search Reddit for …"*. IRA only runs read-only commands; adding channels
+(`agent-reach add reddit`), logging in (`agent-reach login reddit`) and API keys
+(`agent-reach configure groq-key`) stay with you in your own terminal. If IRA can't find the
+`agent-reach` command, set `AGENT_REACH_BIN` to its full path.
 
 ---
 

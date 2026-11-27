@@ -180,6 +180,9 @@ def _call_tool(tool: str, parameters: dict, speak: Callable | None) -> str:
     elif tool == "web_search":
         from actions.web_search import web_search
         return web_search(parameters=parameters, player=None) or "Done."
+    elif tool == "agent_reach":
+        from actions.agent_reach import agent_reach
+        return agent_reach(parameters=parameters, player=None) or "Done."
     elif tool == "game_updater":
         from actions.game_updater import game_updater
         return game_updater(parameters=parameters, player=None, speak=speak) or "Done."

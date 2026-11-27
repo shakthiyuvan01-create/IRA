@@ -36,6 +36,14 @@ web_search
   items: list of strings (optional, for compare mode)
   aspect: string (optional, for compare mode)
 
+agent_reach
+  action: "read" | "search" | "channels" | "status" | other channel action (optional)
+  url: string (for read) — any link: YouTube, GitHub, Reddit, X/Twitter, Bilibili, V2EX ...
+  channel: string (for search/channel actions) — youtube | github | reddit | twitter | bilibili | v2ex | linkedin | xiaohongshu | xueqiu
+  query: string (for search/channel actions)
+  limit: int (optional)
+  Use when web_search can't get the content: video subtitles, repo/issue details, social posts, a pasted link.
+
 game_updater
   action: "update" | "install" | "list" | "download_status" | "schedule" (required)
   platform: "steam" | "epic" | "both" (optional, default: both)
